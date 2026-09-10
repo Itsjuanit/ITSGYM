@@ -5,7 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { byId, exercises, templates, type TemplateExercise, type WorkoutTemplate } from "./data/catalog";
 import { db, exportBackup, finishSession, getProfile, importBackup, saveProfile, startOrResumeSession, updateSession } from "./lib/db";
 import { formatMinutes, todayKey, uid, weekdayName } from "./lib/dates";
-import type { LoggedSet, PadelSession, Profile, WeightEntry, WorkoutSession } from "./lib/types";
+import type { FitnessAssessment, LoggedSet, PadelSession, Profile, WeightEntry, WorkoutSession } from "./lib/types";
 import "./styles.css";
 
 type Snapshot = {
@@ -340,6 +340,7 @@ function Progress({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
         <div><span>{completed.length}</span><p>completadas</p></div>
         <div><span>{partial}</span><p>parciales</p></div>
       </article>
+      <FitnessSystem data={data} />
       <article className="panel">
         <h2>Rendimiento</h2>
         {exercises.filter((exercise) => data.sessions.some((session) => session.sets.some((set) => set.exerciseId === exercise.id))).slice(0, 6).map((exercise) => (
@@ -360,10 +361,59 @@ function Progress({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
   );
 }
 
+function FitnessSystem({ data }: { data: Snapshot }) {
+  const assessment = data.profile.assessment;
+  const lastWeight = data.weights[0]?.kg ?? data.profile.weightKg ?? assessment?.weightKg;
+  const bmi = lastWeight && assessment?.heightCm ? lastWeight / (assessment.heightCm / 100) ** 2 : undefined;
+  const protein = lastWeight ? `${Math.round(lastWeight * 1.6)}-${Math.round(lastWeight * 2)} g/día` : "cargá peso para estimarlo";
+  const completed30 = data.sessions.filter((session) => session.status === "completed" && session.localDate >= todayKey(new Date(Date.now() - 29 * 86400000))).length;
+  const objective = assessment?.objective ?? "fuerza";
+  return (
+    <article className="panel">
+      <h2>Sistema fitness</h2>
+      <div className="system-grid">
+        <section>
+          <h3>Evaluación inicial</h3>
+          <p>Nivel: {assessment?.level ?? "sin cargar"}. Objetivo: {objective}. IMC: {bmi ? bmi.toFixed(1) : "sin datos"}.</p>
+          <p>Lesiones/molestias: {assessment?.injuries || "ninguna cargada"}.</p>
+        </section>
+        <section>
+          <h3>Objetivos claros</h3>
+          <p>Completar martes, miércoles y jueves. Meta base: 10 de 12 sesiones cada 4 semanas.</p>
+          <p>Últimos 30 días: {completed30}/12 completadas.</p>
+        </section>
+        <section>
+          <h3>Entrenamiento</h3>
+          <p>A/B/C divide sentadilla, bisagra, empuje, tirón y core. En Plan podés cambiar ejercicios, series, objetivo y descanso.</p>
+          <p>Progresión: subí reps solo cuando dos sesiones salgan cómodas y sin dolor.</p>
+        </section>
+        <section>
+          <h3>Pérdida de grasa</h3>
+          <p>Si ese es el objetivo, mantené las 3 sesiones y caminá más en días libres. El peso se mira por tendencia, no por un día suelto.</p>
+        </section>
+        <section>
+          <h3>Músculo y recuperación</h3>
+          <p>Proteína orientativa: {protein}. Dormí, repetí variantes comparables y frená si aparece dolor articular.</p>
+        </section>
+        <section>
+          <h3>Hábitos y auditoría</h3>
+          <p>Plan visible, entrenamiento registrado, peso opcional semanal y respaldo JSON. Revisá el plan si fallás dos semanas seguidas.</p>
+        </section>
+      </div>
+    </article>
+  );
+}
+
 function Settings({ data, refresh }: { data: Snapshot; refresh: () => Promise<void> }) {
   const [profile, setProfile] = useState(data.profile);
   const [message, setMessage] = useState("");
   useEffect(() => setProfile(data.profile), [data.profile]);
+  const patchAssessment = (patch: Partial<FitnessAssessment>) => {
+    setProfile({
+      ...profile,
+      assessment: { level: "principiante", objective: "fuerza", ...profile.assessment, ...patch }
+    });
+  };
   const download = async () => {
     const backup = await exportBackup();
     await saveProfile(backup.profile);
@@ -391,6 +441,30 @@ function Settings({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
         <h2>Ajustes</h2>
         <label>Duración preferida <input type="number" min="20" max="60" value={profile.preferredMinutes} onChange={(e) => setProfile({ ...profile, preferredMinutes: Number(e.target.value) })} /></label>
         <label>Objetivo <textarea value={profile.goal} onChange={(e) => setProfile({ ...profile, goal: e.target.value })} /></label>
+        <div className="assessment-form">
+          <label>Edad <input type="number" min="10" max="100" value={profile.assessment?.age ?? ""} onChange={(e) => patchAssessment({ age: optionalNumber(e.target.value) })} /></label>
+          <label>Altura cm <input type="number" min="100" max="230" value={profile.assessment?.heightCm ?? ""} onChange={(e) => patchAssessment({ heightCm: optionalNumber(e.target.value) })} /></label>
+          <label>Peso kg <input type="number" min="1" step="0.1" value={profile.assessment?.weightKg ?? ""} onChange={(e) => patchAssessment({ weightKg: optionalNumber(e.target.value) })} /></label>
+          <label>Nivel
+            <select value={profile.assessment?.level ?? "principiante"} onChange={(e) => patchAssessment({ level: e.target.value as FitnessAssessment["level"] })}>
+              <option value="principiante">Principiante</option>
+              <option value="intermedio">Intermedio</option>
+              <option value="avanzado">Avanzado</option>
+            </select>
+          </label>
+          <label>Objetivo fitness
+            <select value={profile.assessment?.objective ?? "fuerza"} onChange={(e) => patchAssessment({ objective: e.target.value as FitnessAssessment["objective"] })}>
+              <option value="fuerza">Fuerza</option>
+              <option value="perder grasa">Perder grasa</option>
+              <option value="ganar músculo">Ganar músculo</option>
+              <option value="resistencia">Resistencia</option>
+            </select>
+          </label>
+          <label>Lesiones o molestias <textarea value={profile.assessment?.injuries ?? ""} onChange={(e) => patchAssessment({ injuries: e.target.value })} /></label>
+          <label>Estilo de vida <textarea value={profile.assessment?.lifestyle ?? ""} onChange={(e) => patchAssessment({ lifestyle: e.target.value })} /></label>
+          <label>Nutrición actual <textarea value={profile.assessment?.nutrition ?? ""} onChange={(e) => patchAssessment({ nutrition: e.target.value })} /></label>
+          <label>Recuperación <textarea value={profile.assessment?.recovery ?? ""} onChange={(e) => patchAssessment({ recovery: e.target.value })} /></label>
+        </div>
         <button onClick={async () => { await saveProfile(profile); await refresh(); setMessage("Ajustes guardados."); }}>Guardar ajustes</button>
       </article>
       <article className="panel">
@@ -413,6 +487,10 @@ function liveMs(session: WorkoutSession) {
 function bestSet(sessions: WorkoutSession[], exerciseId: string) {
   const values = sessions.flatMap((session) => session.sets.filter((set) => set.exerciseId === exerciseId).map((set) => set.value ?? Math.min(set.left ?? 0, set.right ?? 0)));
   return values.length ? `mejor registro: ${Math.max(...values)}` : "sin registros";
+}
+
+function optionalNumber(value: string) {
+  return value === "" ? undefined : Number(value);
 }
 
 createRoot(document.getElementById("root")!).render(

@@ -141,7 +141,7 @@ p, li, label, summary { line-height: 1.5; font-size: 1rem; }
 }
 
 .cues { padding-left: 1.1rem; margin: 0; }
-.set-row, .actions, .form-grid { display: grid; gap: 0.65rem; }
+.set-row, .actions, .form-grid, .assessment-form, .system-grid { display: grid; gap: 0.65rem; }
 .set-row.two { grid-template-columns: 1fr 1fr; }
 .set-row.two button { grid-column: 1 / -1; }
 .actions { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); margin-top: 0.8rem; }
@@ -151,6 +151,17 @@ p, li, label, summary { line-height: 1.5; font-size: 1rem; }
 .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; }
 .metrics span { display: block; font-size: 1.8rem; font-weight: 900; color: #15352f; }
 .metrics p { font-size: 0.82rem; color: #66715b; }
+.assessment-form { margin: 0.8rem 0; }
+.assessment-form label, .system-grid h3 { font-weight: 800; }
+.assessment-form label:nth-last-child(-n + 4), .system-grid section { grid-column: 1 / -1; }
+.assessment-form textarea { min-height: 5.5rem; }
+.system-grid section {
+  padding: 0.75rem;
+  border: 1px solid #eee6d7;
+  border-radius: 8px;
+  background: #faf6ec;
+}
+.system-grid h3 { margin: 0 0 0.35rem; font-size: 1rem; }
 .file { display: grid; place-items: center; text-align: center; }
 .file input { display: none; }
 
@@ -183,6 +194,7 @@ p, li, label, summary { line-height: 1.5; font-size: 1rem; }
   .shell { padding-inline: 1.5rem; }
   h1 { max-width: none; }
   .form-grid { grid-template-columns: repeat(3, 1fr); align-items: end; }
+  .assessment-form, .system-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (prefers-reduced-motion: no-preference) {

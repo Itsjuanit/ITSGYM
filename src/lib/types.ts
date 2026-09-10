@@ -1,5 +1,17 @@
 import type { WorkoutTemplate } from "../data/catalog";
 
+export type FitnessAssessment = {
+  age?: number;
+  heightCm?: number;
+  weightKg?: number;
+  level: "principiante" | "intermedio" | "avanzado";
+  objective: "fuerza" | "perder grasa" | "ganar músculo" | "resistencia";
+  injuries?: string;
+  lifestyle?: string;
+  nutrition?: string;
+  recovery?: string;
+};
+
 export type Profile = {
   id: "me";
   strengthDays: number[];
@@ -7,6 +19,7 @@ export type Profile = {
   preferredMinutes: number;
   goal: string;
   customTemplates?: WorkoutTemplate[];
+  assessment?: FitnessAssessment;
   weightKg?: number;
   lastBackupAt?: string;
 };

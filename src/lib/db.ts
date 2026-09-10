@@ -9,7 +9,13 @@ const defaultProfile: Profile = {
   padelDays: [],
   preferredMinutes: 35,
   goal: "Constancia y fuerza general con una mancuerna de 7 kg",
-  customTemplates: templates
+  customTemplates: templates,
+  assessment: {
+    level: "principiante",
+    objective: "fuerza",
+    lifestyle: "Entreno en casa martes, miércoles y jueves.",
+    recovery: "Priorizar sueño, técnica cómoda y no entrenar dolor fuerte."
+  }
 };
 
 class GymDb extends Dexie {
