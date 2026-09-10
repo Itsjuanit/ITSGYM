@@ -34,10 +34,10 @@ function AppShell() {
   const workoutTemplates = data.profile.customTemplates ?? templates;
   return (
     <div className="shell">
-      <header>
+      <header className="app-header">
         <div>
           <p className="eyebrow">Fuerza en casa</p>
-          <h1>Una mancuerna. Tres sesiones. Registro real.</h1>
+          <h1>ITSGYM</h1>
         </div>
         <NavLink className="icon-link" to="/ajustes">Ajustes</NavLink>
       </header>
@@ -65,6 +65,7 @@ function Today({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: (
   const navigate = useNavigate();
   const active = data.sessions.find((session) => session.status === "active" || session.status === "paused");
   const completed = data.sessions.filter((session) => session.status === "completed");
+  const weekCompleted = completed.filter((session) => session.localDate >= todayKey(new Date(Date.now() - 6 * 86400000))).length;
   const next = active?.template ?? workoutTemplates[(workoutTemplates.findIndex((item) => item.id === completed[0]?.templateId) + 1) % workoutTemplates.length];
   const start = async () => {
     await startOrResumeSession(workoutTemplates);
@@ -73,19 +74,33 @@ function Today({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: (
   };
   return (
     <section className="stack">
-      <article className="panel hero-panel">
-        <p className="eyebrow">Hoy toca</p>
-        <h2>{active ? `Continuar ${active.template.name}` : next.name}</h2>
-        <p>{next.focus}. Duración orientativa: {next.minutes} minutos.</p>
+      <article className="panel hero-panel today-hero">
+        <div>
+          <p className="eyebrow">{active ? "Sesión abierta" : "Hoy toca"}</p>
+          <h2>{active ? `Continuar ${active.template.name}` : next.name}</h2>
+          <p>{next.focus}. {estimateTemplateMinutes(next)} min estimados.</p>
+        </div>
         <button className="primary" onClick={start}>{active ? "Continuar" : "Empezar"}</button>
       </article>
-      <article className="panel">
-        <h2>Último movimiento</h2>
-        <p>{data.sessions[0] ? `${data.sessions[0].template.name} · ${data.sessions[0].status} · ${data.sessions[0].localDate}` : "Todavía no hay sesiones guardadas."}</p>
+      <article className="quick-stats">
+        <div><strong>{weekCompleted}/3</strong><span>esta semana</span></div>
+        <div><strong>{completed.length}</strong><span>sesiones</span></div>
+        <div><strong>{data.weights[0]?.kg ?? data.profile.weightKg ?? "--"}</strong><span>kg actual</span></div>
       </article>
       <article className="panel">
-        <h2>Semana</h2>
+        <div className="section-title">
+          <h2>Semana</h2>
+          <NavLink to="/plan">Editar</NavLink>
+        </div>
         <Week profile={data.profile} workoutTemplates={workoutTemplates} />
+      </article>
+      <article className="panel">
+        <h2>Próxima rutina</h2>
+        <SessionPreview template={next} />
+      </article>
+      <article className="panel compact-panel">
+        <h2>Último movimiento</h2>
+        <p>{data.sessions[0] ? `${data.sessions[0].template.name} · ${sessionStatus(data.sessions[0].status)} · ${data.sessions[0].localDate}` : "Todavía no hay sesiones guardadas."}</p>
       </article>
     </section>
   );
@@ -143,14 +158,22 @@ function Plan({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: ()
   return (
     <section className="stack">
       <article className="panel">
-        <h2>Calendario</h2>
-        <p>Entrenás con esta app martes, miércoles y jueves.</p>
+        <div className="section-title">
+          <h2>Calendario</h2>
+          <span>Martes, miércoles y jueves</span>
+        </div>
         <Week profile={{ ...data.profile, strengthDays: [2, 3, 4], padelDays: [] }} workoutTemplates={draft} />
       </article>
       {draft.map((template) => (
-        <article className="panel" key={template.id}>
-          <h2>{template.name}</h2>
-          <p>{template.focus} · {template.minutes} min · estimado {estimateTemplateMinutes(template)} min</p>
+        <article className="panel routine-card" key={template.id}>
+          <div className="section-title">
+            <div>
+              <p className="eyebrow">Rutina {template.id}</p>
+              <h2>{template.name}</h2>
+            </div>
+            <strong>{estimateTemplateMinutes(template)} min</strong>
+          </div>
+          <p>{template.focus} · {template.exercises.length} ejercicios</p>
           <div className="routine-editor">
             {template.exercises.map((item, index) => (
               <div className="routine-row" key={`${template.id}-${index}`}>
@@ -205,6 +228,7 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
   const isExerciseDone = done >= item.sets;
   const isLastExercise = index === session.template.exercises.length - 1;
   const restLeft = restUntil ? Math.max(0, Math.ceil((restUntil - now) / 1000)) : 0;
+  const stateLabel = restLeft ? "Descanso" : isExerciseDone ? "Listo" : "Registrar";
   const progress = ((index + Math.min(done / item.sets, 1)) / session.template.exercises.length) * 100;
   const save = async (next: WorkoutSession) => {
     setSession(next);
@@ -229,18 +253,29 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
     navigate("/historial");
   };
   return (
-    <section className="stack">
-      <article className="panel hero-panel">
-        <p className="eyebrow">{session.template.name} · ejercicio {index + 1}/{session.template.exercises.length}</p>
+    <section className="stack training">
+      <article className="panel hero-panel training-hero">
+        <div className="training-top">
+          <div>
+            <p className="eyebrow">{session.template.name}</p>
+            <h2>{exercise.name}</h2>
+          </div>
+          <strong>{index + 1}/{session.template.exercises.length}</strong>
+        </div>
         <div className="workout-progress" aria-label={`Progreso ${Math.round(progress)}%`}><span style={{ width: `${progress}%` }} /></div>
-        <h2>{exercise.name}</h2>
-        <p>{exercise.load} · {item.target}</p>
-        {item.tempo && <p>Tempo: {item.tempo}</p>}
+        <div className="training-meta">
+          <span>{stateLabel}</span>
+          <span>{exercise.load}</span>
+          <span>{item.target}</span>
+          {item.tempo && <span>{item.tempo}</span>}
+        </div>
         <Demo exercise={exercise} />
       </article>
-      <article className="panel">
-        <h2>Series</h2>
-        <p>Serie {Math.min(done + 1, item.sets)}/{item.sets} · {done} confirmadas · descanso {item.rest}s</p>
+      <article className="panel action-panel">
+        <div className="section-title">
+          <h2>Serie {Math.min(done + 1, item.sets)}/{item.sets}</h2>
+          <span>{done} confirmadas</span>
+        </div>
         {restLeft > 0 ? (
           <div className="rest-card">
             <span>Descanso</span>
@@ -256,7 +291,7 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
         ) : exercise.unilateral
           ? <TwoSideSet key={`${exercise.id}-${done}`} exerciseId={exercise.id} setNumber={done + 1} unit={exercise.unit} initialValue={targetDefault(item.target, exercise.unit)} onSave={logSet} />
           : <OneValueSet key={`${exercise.id}-${done}`} exerciseId={exercise.id} setNumber={done + 1} unit={exercise.unit} initialValue={targetDefault(item.target, exercise.unit)} onSave={logSet} />}
-        <div className="actions">
+        <div className="actions subtle-actions">
           <button onClick={undo} disabled={!session.sets.length}>Deshacer</button>
           <button onClick={nextExercise} disabled={isLastExercise}>Siguiente</button>
         </div>
@@ -295,6 +330,22 @@ function TwoSideSet({ exerciseId, setNumber, unit, initialValue, onSave }: { exe
 function ExerciseLine({ item }: { item: TemplateExercise }) {
   const exercise = byId[item.exerciseId];
   return <p><strong>{exercise.name}</strong><span>{item.sets} series · {item.target} · {item.rest}s{item.tempo ? ` · ${item.tempo}` : ""}</span></p>;
+}
+
+function SessionPreview({ template }: { template: WorkoutTemplate }) {
+  return (
+    <div className="session-preview">
+      {template.exercises.map((item, index) => {
+        const exercise = byId[item.exerciseId];
+        return (
+          <div key={`${template.id}-${item.exerciseId}-${index}`}>
+            <span>{index + 1}</span>
+            <p><strong>{exercise.name}</strong><small>{item.sets} series · {item.target} · {item.rest}s</small></p>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function Demo({ exercise }: { exercise: typeof exercises[number] }) {
@@ -377,8 +428,11 @@ function History({ data, refresh }: { data: Snapshot; refresh: () => Promise<voi
       {data.sessions.length === 0 && <article className="panel"><h2>Historial</h2><p>No hay entrenamientos todavía.</p></article>}
       {data.sessions.map((session) => (
         <article className="panel" key={session.id}>
-          <h2>{session.template.name}</h2>
-          <p>{session.localDate} · {session.status} · {formatMinutes(session.activeMs)} · {session.sets.length} series</p>
+          <div className="section-title">
+            <h2>{session.template.name}</h2>
+            <span>{sessionStatus(session.status)}</span>
+          </div>
+          <p>{session.localDate} · {formatMinutes(session.activeMs)} · {session.sets.length} series</p>
           <details>
             <summary>Detalle</summary>
             {session.sets.map((set, i) => <p key={`${set.exerciseId}-${i}`}>{byId[set.exerciseId].name}: {set.left != null ? `izquierda ${set.left} / derecha ${set.right}` : set.value}</p>)}
@@ -399,12 +453,21 @@ function Progress({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
     await refresh();
   };
   const weekly = completed.filter((session) => session.localDate >= todayKey(new Date(Date.now() - 6 * 86400000))).length;
+  const adherence = Math.round((weekly / 3) * 100);
   return (
     <section className="stack">
       <article className="metrics">
         <div><span>{weekly}</span><p>fuerza esta semana</p></div>
         <div><span>{completed.length}</span><p>completadas</p></div>
         <div><span>{partial}</span><p>parciales</p></div>
+      </article>
+      <article className="panel">
+        <div className="section-title">
+          <h2>Adherencia</h2>
+          <span>{adherence}%</span>
+        </div>
+        <div className="meter"><span style={{ width: `${Math.min(adherence, 100)}%` }} /></div>
+        <p>Objetivo: 3 sesiones entre martes y jueves.</p>
       </article>
       <FitnessSystem data={data} />
       <article className="panel">
@@ -553,6 +616,10 @@ function liveMs(session: WorkoutSession) {
 function bestSet(sessions: WorkoutSession[], exerciseId: string) {
   const values = sessions.flatMap((session) => session.sets.filter((set) => set.exerciseId === exerciseId).map((set) => set.value ?? Math.min(set.left ?? 0, set.right ?? 0)));
   return values.length ? `mejor registro: ${Math.max(...values)}` : "sin registros";
+}
+
+function sessionStatus(status: WorkoutSession["status"]) {
+  return ({ active: "activa", paused: "pausada", completed: "completa", partial: "parcial" } as const)[status];
 }
 
 function targetDefault(target: string, unit: "reps" | "seconds") {
