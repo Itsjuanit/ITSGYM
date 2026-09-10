@@ -10,7 +10,7 @@
 
 body { margin: 0; min-width: 320px; }
 
-button, input, textarea, .file, .icon-link {
+button, input, textarea, select, .file, .icon-link {
   min-height: 44px;
   border: 1px solid #c8c2b4;
   border-radius: 8px;
@@ -22,7 +22,7 @@ button, input, textarea, .file, .icon-link {
 button, .file, .icon-link { padding: 0.7rem 0.9rem; font-weight: 750; cursor: pointer; }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid #f2c45b; outline-offset: 2px; }
-input, textarea { width: 100%; padding: 0.65rem; }
+input, textarea, select { width: 100%; padding: 0.65rem; }
 textarea { min-height: 7rem; resize: vertical; }
 a { color: inherit; text-decoration: none; }
 
@@ -71,6 +71,20 @@ p, li, label, summary { line-height: 1.5; font-size: 1rem; }
 .list { display: grid; gap: 0.55rem; margin-top: 0.75rem; }
 .list p, .panel > p + p, details p, .panel > p:not(:last-child) { padding-block: 0.35rem; border-bottom: 1px solid #eee6d7; }
 .list span, .panel p span { display: block; color: #66715b; }
+
+.routine-editor { display: grid; gap: 0.8rem; margin-top: 0.8rem; }
+.routine-row {
+  display: grid;
+  grid-template-columns: 1fr 5rem;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  border: 1px solid #eee6d7;
+  border-radius: 8px;
+  background: #faf6ec;
+}
+.routine-row label:first-child, .routine-row label:nth-child(3) { grid-column: 1 / -1; }
+.routine-row label { font-weight: 700; }
+.routine-row button { align-self: end; }
 
 .demo, .exercise-demo {
   min-height: 128px;

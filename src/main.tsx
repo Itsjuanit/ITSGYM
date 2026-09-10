@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { BrowserRouter } from "react-router-dom";
-import { byId, exercises, templates } from "./data/catalog";
+import { byId, exercises, templates, type TemplateExercise, type WorkoutTemplate } from "./data/catalog";
 import { db, exportBackup, finishSession, getProfile, importBackup, saveProfile, startOrResumeSession, updateSession } from "./lib/db";
 import { formatMinutes, todayKey, uid, weekdayName } from "./lib/dates";
 import type { LoggedSet, PadelSession, Profile, WeightEntry, WorkoutSession } from "./lib/types";
@@ -15,7 +15,7 @@ type Snapshot = {
   weights: WeightEntry[];
 };
 
-const empty: Snapshot = { profile: { id: "me", strengthDays: [1, 3, 5], padelDays: [2, 4], preferredMinutes: 35, goal: "" }, sessions: [], padel: [], weights: [] };
+const empty: Snapshot = { profile: { id: "me", strengthDays: [2, 3, 4], padelDays: [], preferredMinutes: 35, goal: "", customTemplates: templates }, sessions: [], padel: [], weights: [] };
 
 function useSnapshot() {
   const [data, setData] = useState<Snapshot>(empty);
@@ -31,6 +31,7 @@ function useSnapshot() {
 
 function AppShell() {
   const { data, refresh } = useSnapshot();
+  const workoutTemplates = data.profile.customTemplates ?? templates;
   return (
     <div className="shell">
       <header>
@@ -42,9 +43,9 @@ function AppShell() {
       </header>
       <main>
         <Routes>
-          <Route path="/" element={<Today data={data} refresh={refresh} />} />
-          <Route path="/plan" element={<Plan data={data} refresh={refresh} />} />
-          <Route path="/entrenar" element={<Training refresh={refresh} />} />
+          <Route path="/" element={<Today data={data} refresh={refresh} workoutTemplates={workoutTemplates} />} />
+          <Route path="/plan" element={<Plan data={data} refresh={refresh} workoutTemplates={workoutTemplates} />} />
+          <Route path="/entrenar" element={<Training data={data} refresh={refresh} />} />
           <Route path="/historial" element={<History data={data} refresh={refresh} />} />
           <Route path="/progreso" element={<Progress data={data} refresh={refresh} />} />
           <Route path="/ajustes" element={<Settings data={data} refresh={refresh} />} />
@@ -60,13 +61,13 @@ function AppShell() {
   );
 }
 
-function Today({ data, refresh }: { data: Snapshot; refresh: () => Promise<void> }) {
+function Today({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: () => Promise<void>; workoutTemplates: WorkoutTemplate[] }) {
   const navigate = useNavigate();
   const active = data.sessions.find((session) => session.status === "active" || session.status === "paused");
   const completed = data.sessions.filter((session) => session.status === "completed");
-  const next = active?.template ?? templates[(templates.findIndex((item) => item.id === completed[0]?.templateId) + 1) % templates.length];
+  const next = active?.template ?? workoutTemplates[(workoutTemplates.findIndex((item) => item.id === completed[0]?.templateId) + 1) % workoutTemplates.length];
   const start = async () => {
-    await startOrResumeSession();
+    await startOrResumeSession(workoutTemplates);
     await refresh();
     navigate("/entrenar");
   };
@@ -84,46 +85,95 @@ function Today({ data, refresh }: { data: Snapshot; refresh: () => Promise<void>
       </article>
       <article className="panel">
         <h2>Semana</h2>
-        <Week profile={data.profile} />
+        <Week profile={data.profile} workoutTemplates={workoutTemplates} />
       </article>
     </section>
   );
 }
 
-function Week({ profile }: { profile: Profile }) {
+function Week({ profile, workoutTemplates = templates }: { profile: Profile; workoutTemplates?: WorkoutTemplate[] }) {
   return (
     <div className="week">
       {[1, 2, 3, 4, 5, 6, 0].map((day) => (
         <div className="day" key={day}>
           <span>{weekdayName(day).slice(0, 3)}</span>
-          <strong>{profile.strengthDays.includes(day) ? "Fuerza" : profile.padelDays.includes(day) ? "Pádel" : "Descanso"}</strong>
+          <strong>{dayLabel(profile, workoutTemplates, day)}</strong>
         </div>
       ))}
     </div>
   );
 }
 
-function Plan({ data, refresh }: { data: Snapshot; refresh: () => Promise<void> }) {
+function dayLabel(profile: Profile, workoutTemplates: WorkoutTemplate[], day: number) {
+  const trainingIndex = profile.strengthDays.indexOf(day);
+  if (trainingIndex >= 0) return workoutTemplates[trainingIndex]?.id ? `Rutina ${workoutTemplates[trainingIndex].id}` : "Fuerza";
+  if (profile.padelDays.includes(day)) return "Pádel";
+  return "Descanso";
+}
+
+function Plan({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: () => Promise<void>; workoutTemplates: WorkoutTemplate[] }) {
   const [padel, setPadel] = useState({ date: todayKey(), minutes: 60, effort: 6 });
+  const [draft, setDraft] = useState(workoutTemplates);
+  const [message, setMessage] = useState("");
+  useEffect(() => setDraft(workoutTemplates), [workoutTemplates]);
   const addPadel = async () => {
     await db.padel.add({ id: uid(), ...padel });
+    await refresh();
+  };
+  const updateExercise = (templateId: WorkoutTemplate["id"], index: number, patch: Partial<TemplateExercise>) => {
+    setDraft(draft.map((template) => template.id === templateId
+      ? { ...template, exercises: template.exercises.map((item, i) => i === index ? { ...item, ...patch } : item) }
+      : template));
+  };
+  const addExercise = (templateId: WorkoutTemplate["id"]) => {
+    setDraft(draft.map((template) => template.id === templateId
+      ? { ...template, exercises: [...template.exercises, { exerciseId: "goblet-squat", sets: 2, target: "8-12 reps", rest: 60 }] }
+      : template));
+  };
+  const removeExercise = (templateId: WorkoutTemplate["id"], index: number) => {
+    setDraft(draft.map((template) => template.id === templateId && template.exercises.length > 1
+      ? { ...template, exercises: template.exercises.filter((_, i) => i !== index) }
+      : template));
+  };
+  const saveRoutines = async () => {
+    await saveProfile({ ...data.profile, strengthDays: [2, 3, 4], padelDays: [], customTemplates: draft });
+    setMessage("Rutinas guardadas.");
     await refresh();
   };
   return (
     <section className="stack">
       <article className="panel">
         <h2>Calendario</h2>
-        <Week profile={data.profile} />
+        <p>Entrenás con esta app martes, miércoles y jueves.</p>
+        <Week profile={{ ...data.profile, strengthDays: [2, 3, 4], padelDays: [] }} workoutTemplates={draft} />
       </article>
-      {templates.map((template) => (
+      {draft.map((template) => (
         <article className="panel" key={template.id}>
           <h2>{template.name}</h2>
           <p>{template.focus} · {template.minutes} min</p>
-          <div className="list">
-            {template.exercises.map((item) => <ExerciseLine key={item.exerciseId} item={item} />)}
+          <div className="routine-editor">
+            {template.exercises.map((item, index) => (
+              <div className="routine-row" key={`${template.id}-${index}`}>
+                <label>Ejercicio
+                  <select value={item.exerciseId} onChange={(e) => updateExercise(template.id, index, { exerciseId: e.target.value })}>
+                    {exercises.map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}
+                  </select>
+                </label>
+                <label>Series <input type="number" min="1" max="6" value={item.sets} onChange={(e) => updateExercise(template.id, index, { sets: Number(e.target.value) })} /></label>
+                <label>Objetivo <input value={item.target} onChange={(e) => updateExercise(template.id, index, { target: e.target.value })} /></label>
+                <label>Descanso <input type="number" min="0" step="15" value={item.rest} onChange={(e) => updateExercise(template.id, index, { rest: Number(e.target.value) })} /></label>
+                <button className="danger" onClick={() => removeExercise(template.id, index)} disabled={template.exercises.length === 1}>Quitar</button>
+              </div>
+            ))}
           </div>
+          <button onClick={() => addExercise(template.id)}>Agregar ejercicio</button>
         </article>
       ))}
+      <div className="actions sticky-actions">
+        <button onClick={() => setDraft(templates)}>Restaurar base</button>
+        <button className="primary" onClick={saveRoutines}>Guardar rutinas</button>
+      </div>
+      {message && <p className="status">{message}</p>}
       <article className="panel">
         <h2>Registrar pádel</h2>
         <div className="form-grid">
@@ -136,14 +186,13 @@ function Plan({ data, refresh }: { data: Snapshot; refresh: () => Promise<void> 
     </section>
   );
 }
-
-function Training({ refresh }: { refresh: () => Promise<void> }) {
+function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<void> }) {
   const navigate = useNavigate();
   const [session, setSession] = useState<WorkoutSession>();
   const [index, setIndex] = useState(0);
   const [restUntil, setRestUntil] = useState<number>();
   const [now, setNow] = useState(Date.now());
-  useEffect(() => { startOrResumeSession().then(setSession); }, []);
+  useEffect(() => { startOrResumeSession(data.profile.customTemplates ?? templates).then(setSession); }, [data.profile.customTemplates]);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);

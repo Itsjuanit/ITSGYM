@@ -5,10 +5,11 @@ import type { Backup, PadelSession, Profile, WeightEntry, WorkoutSession } from 
 
 const defaultProfile: Profile = {
   id: "me",
-  strengthDays: [1, 3, 5],
-  padelDays: [2, 4],
+  strengthDays: [2, 3, 4],
+  padelDays: [],
   preferredMinutes: 35,
-  goal: "Constancia y fuerza general con una mancuerna de 7 kg"
+  goal: "Constancia y fuerza general con una mancuerna de 7 kg",
+  customTemplates: templates
 };
 
 class GymDb extends Dexie {
@@ -30,11 +31,25 @@ class GymDb extends Dexie {
 
 export const db = new GymDb();
 
-export const getProfile = async () => (await db.profile.get("me")) ?? defaultProfile;
+const sameDays = (a?: number[], b?: number[]) => JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
+
+function normalizeProfile(profile?: Profile): Profile {
+  if (!profile) return defaultProfile;
+  const wasOldDefault = sameDays(profile.strengthDays, [1, 3, 5]) && sameDays(profile.padelDays, [2, 4]);
+  return {
+    ...defaultProfile,
+    ...profile,
+    strengthDays: wasOldDefault ? defaultProfile.strengthDays : profile.strengthDays,
+    padelDays: wasOldDefault ? defaultProfile.padelDays : profile.padelDays,
+    customTemplates: profile.customTemplates ?? templates
+  };
+}
+
+export const getProfile = async () => normalizeProfile(await db.profile.get("me"));
 
 export const saveProfile = (profile: Profile) => db.profile.put(profile);
 
-export async function startOrResumeSession() {
+export async function startOrResumeSession(workoutTemplates = templates) {
   const active = await db.sessions.where("status").anyOf("active", "paused").first();
   if (active) {
     const resumed = { ...active, status: "active" as const, lastResumedAt: new Date().toISOString() };
@@ -43,7 +58,7 @@ export async function startOrResumeSession() {
   }
 
   const completed = await db.sessions.where("status").equals("completed").reverse().sortBy("startedAt");
-  const next = templates[(templates.findIndex((item) => item.id === completed[0]?.templateId) + 1) % templates.length];
+  const next = workoutTemplates[(workoutTemplates.findIndex((item) => item.id === completed[0]?.templateId) + 1) % workoutTemplates.length];
   const session: WorkoutSession = {
     id: uid(),
     templateId: next.id,

@@ -6,6 +6,7 @@ export type Profile = {
   padelDays: number[];
   preferredMinutes: number;
   goal: string;
+  customTemplates?: WorkoutTemplate[];
   weightKg?: number;
   lastBackupAt?: string;
 };
