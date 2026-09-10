@@ -1,4 +1,4 @@
-export type Exercise = {
+﻿export type Exercise = {
   id: string;
   name: string;
   pattern: string;
@@ -17,6 +17,7 @@ export type TemplateExercise = {
   sets: number;
   target: string;
   rest: number;
+  tempo?: string;
 };
 
 export type WorkoutTemplate = {
@@ -48,29 +49,29 @@ export const exercises: Exercise[] = [
 ];
 
 export const templates: WorkoutTemplate[] = [
-  { id: "A", name: "A - Base", focus: "sentadilla, empuje y core", minutes: "32-38", exercises: [
-    { exerciseId: "warm-mobility", sets: 1, target: "180 seg", rest: 30 },
-    { exerciseId: "goblet-squat", sets: 3, target: "8-12 reps", rest: 75 },
-    { exerciseId: "floor-press", sets: 3, target: "8-12 por lado", rest: 75 },
-    { exerciseId: "one-arm-row", sets: 3, target: "10-12 por lado", rest: 75 },
-    { exerciseId: "dead-bug", sets: 2, target: "8-10 por lado", rest: 45 },
-    { exerciseId: "breathing", sets: 1, target: "120 seg", rest: 0 }
+  { id: "A", name: "A - Martes fuerte", focus: "sentadilla, empuje y tirón", minutes: "31-36", exercises: [
+    { exerciseId: "warm-mobility", sets: 1, target: "180 seg", rest: 30, tempo: "fluido" },
+    { exerciseId: "goblet-squat", sets: 3, target: "8-10 reps", rest: 75, tempo: "3s bajar · subir controlado" },
+    { exerciseId: "floor-press", sets: 3, target: "8-10 por lado", rest: 75, tempo: "pausa breve abajo" },
+    { exerciseId: "one-arm-row", sets: 3, target: "10-12 por lado", rest: 75, tempo: "1s apretar arriba" },
+    { exerciseId: "dead-bug", sets: 2, target: "8-10 por lado", rest: 45, tempo: "lento, sin apuro" },
+    { exerciseId: "breathing", sets: 1, target: "120 seg", rest: 0, tempo: "exhalación larga" }
   ] },
-  { id: "B", name: "B - Bisagra", focus: "cadera, tirón y estabilidad", minutes: "30-36", exercises: [
-    { exerciseId: "march-place", sets: 1, target: "180 seg", rest: 30 },
-    { exerciseId: "db-rdl", sets: 3, target: "10-12 reps", rest: 75 },
-    { exerciseId: "split-squat", sets: 3, target: "8-10 por lado", rest: 75 },
-    { exerciseId: "one-arm-row", sets: 3, target: "10-12 por lado", rest: 75 },
-    { exerciseId: "side-plank", sets: 2, target: "20-35 seg por lado", rest: 45 },
-    { exerciseId: "breathing", sets: 1, target: "120 seg", rest: 0 }
+  { id: "B", name: "B - Miércoles control", focus: "bisagra, espalda y core", minutes: "28-34", exercises: [
+    { exerciseId: "march-place", sets: 1, target: "180 seg", rest: 30, tempo: "ritmo cómodo" },
+    { exerciseId: "db-rdl", sets: 3, target: "10-12 reps", rest: 75, tempo: "3s bajar · 1s pausa" },
+    { exerciseId: "one-arm-row", sets: 3, target: "10-12 por lado", rest: 75, tempo: "tirón limpio, sin giro" },
+    { exerciseId: "glute-bridge", sets: 2, target: "12-15 reps", rest: 60, tempo: "2s apretar arriba" },
+    { exerciseId: "side-plank", sets: 2, target: "20-30 seg por lado", rest: 45, tempo: "respirar parejo" },
+    { exerciseId: "breathing", sets: 1, target: "120 seg", rest: 0, tempo: "bajar pulsaciones" }
   ] },
-  { id: "C", name: "C - Control", focus: "piernas, empuje y abdomen", minutes: "30-40", exercises: [
-    { exerciseId: "warm-mobility", sets: 1, target: "180 seg", rest: 30 },
-    { exerciseId: "reverse-lunge", sets: 3, target: "8-10 por lado", rest: 75 },
-    { exerciseId: "incline-pushup", sets: 3, target: "6-12 reps", rest: 75 },
-    { exerciseId: "glute-bridge", sets: 3, target: "12-15 reps", rest: 60 },
-    { exerciseId: "suitcase-carry", sets: 2, target: "30-45 seg por lado", rest: 45 },
-    { exerciseId: "calf-raise", sets: 2, target: "12-20 reps", rest: 45 }
+  { id: "C", name: "C - Jueves liviano", focus: "pierna unilateral, empuje y postura", minutes: "27-33", exercises: [
+    { exerciseId: "warm-mobility", sets: 1, target: "180 seg", rest: 30, tempo: "fluido" },
+    { exerciseId: "split-squat", sets: 2, target: "8-10 por lado", rest: 75, tempo: "bajada lenta" },
+    { exerciseId: "incline-pushup", sets: 3, target: "6-10 reps", rest: 75, tempo: "cuerpo firme" },
+    { exerciseId: "suitcase-carry", sets: 2, target: "30-40 seg por lado", rest: 45, tempo: "postura alta" },
+    { exerciseId: "calf-raise", sets: 2, target: "12-18 reps", rest: 45, tempo: "pausa arriba" },
+    { exerciseId: "breathing", sets: 1, target: "120 seg", rest: 0, tempo: "exhalación larga" }
   ] }
 ];
 

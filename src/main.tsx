@@ -127,7 +127,7 @@ function Plan({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: ()
   };
   const addExercise = (templateId: WorkoutTemplate["id"]) => {
     setDraft(draft.map((template) => template.id === templateId
-      ? { ...template, exercises: [...template.exercises, { exerciseId: "goblet-squat", sets: 2, target: "8-12 reps", rest: 60 }] }
+      ? { ...template, exercises: [...template.exercises, { exerciseId: "goblet-squat", sets: 2, target: "8-12 reps", rest: 60, tempo: "controlado" }] }
       : template));
   };
   const removeExercise = (templateId: WorkoutTemplate["id"], index: number) => {
@@ -150,7 +150,7 @@ function Plan({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: ()
       {draft.map((template) => (
         <article className="panel" key={template.id}>
           <h2>{template.name}</h2>
-          <p>{template.focus} · {template.minutes} min</p>
+          <p>{template.focus} · {template.minutes} min · estimado {estimateTemplateMinutes(template)} min</p>
           <div className="routine-editor">
             {template.exercises.map((item, index) => (
               <div className="routine-row" key={`${template.id}-${index}`}>
@@ -162,6 +162,7 @@ function Plan({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: ()
                 <label>Series <input type="number" min="1" max="6" value={item.sets} onChange={(e) => updateExercise(template.id, index, { sets: Number(e.target.value) })} /></label>
                 <label>Objetivo <input value={item.target} onChange={(e) => updateExercise(template.id, index, { target: e.target.value })} /></label>
                 <label>Descanso <input type="number" min="0" step="15" value={item.rest} onChange={(e) => updateExercise(template.id, index, { rest: Number(e.target.value) })} /></label>
+                <label>Tempo <input value={item.tempo ?? ""} onChange={(e) => updateExercise(template.id, index, { tempo: e.target.value })} /></label>
                 <button className="danger" onClick={() => removeExercise(template.id, index)} disabled={template.exercises.length === 1}>Quitar</button>
               </div>
             ))}
@@ -225,13 +226,16 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
         <p className="eyebrow">{session.template.name} · ejercicio {index + 1}/{session.template.exercises.length}</p>
         <h2>{exercise.name}</h2>
         <p>{exercise.load} · {item.target}</p>
+        {item.tempo && <p>Tempo: {item.tempo}</p>}
         <Demo exercise={exercise} />
         <ul className="cues">{exercise.cues.map((cue) => <li key={cue}>{cue}</li>)}</ul>
       </article>
       <article className="panel">
         <h2>Series</h2>
         <p>{done}/{item.sets} confirmadas. Referencia anterior: completar con técnica cómoda.</p>
-        {exercise.unilateral ? <TwoSideSet exerciseId={exercise.id} setNumber={done + 1} unit={exercise.unit} onSave={logSet} /> : <OneValueSet exerciseId={exercise.id} setNumber={done + 1} unit={exercise.unit} onSave={logSet} />}
+        {exercise.unilateral
+          ? <TwoSideSet key={exercise.id} exerciseId={exercise.id} setNumber={done + 1} unit={exercise.unit} initialValue={targetDefault(item.target, exercise.unit)} onSave={logSet} />
+          : <OneValueSet key={exercise.id} exerciseId={exercise.id} setNumber={done + 1} unit={exercise.unit} initialValue={targetDefault(item.target, exercise.unit)} onSave={logSet} />}
         <div className="actions">
           <button onClick={undo} disabled={!session.sets.length}>Deshacer</button>
           <button onClick={() => setIndex(Math.min(session.template.exercises.length - 1, index + 1))} disabled={index === session.template.exercises.length - 1}>Siguiente</button>
@@ -247,8 +251,8 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
   );
 }
 
-function OneValueSet({ exerciseId, setNumber, unit, onSave }: { exerciseId: string; setNumber: number; unit: "reps" | "seconds"; onSave: (set: LoggedSet) => void }) {
-  const [value, setValue] = useState(unit === "seconds" ? 30 : 10);
+function OneValueSet({ exerciseId, setNumber, unit, initialValue, onSave }: { exerciseId: string; setNumber: number; unit: "reps" | "seconds"; initialValue: number; onSave: (set: LoggedSet) => void }) {
+  const [value, setValue] = useState(initialValue);
   return (
     <div className="set-row">
       <label>{unit === "seconds" ? "Segundos" : "Reps"} <input type="number" min="0" value={value} onChange={(e) => setValue(Number(e.target.value))} /></label>
@@ -257,9 +261,9 @@ function OneValueSet({ exerciseId, setNumber, unit, onSave }: { exerciseId: stri
   );
 }
 
-function TwoSideSet({ exerciseId, setNumber, unit, onSave }: { exerciseId: string; setNumber: number; unit: "reps" | "seconds"; onSave: (set: LoggedSet) => void }) {
-  const [left, setLeft] = useState(unit === "seconds" ? 30 : 10);
-  const [right, setRight] = useState(unit === "seconds" ? 30 : 10);
+function TwoSideSet({ exerciseId, setNumber, unit, initialValue, onSave }: { exerciseId: string; setNumber: number; unit: "reps" | "seconds"; initialValue: number; onSave: (set: LoggedSet) => void }) {
+  const [left, setLeft] = useState(initialValue);
+  const [right, setRight] = useState(initialValue);
   return (
     <div className="set-row two">
       <label>Izquierda <input type="number" min="0" value={left} onChange={(e) => setLeft(Number(e.target.value))} /></label>
@@ -269,9 +273,9 @@ function TwoSideSet({ exerciseId, setNumber, unit, onSave }: { exerciseId: strin
   );
 }
 
-function ExerciseLine({ item }: { item: { exerciseId: string; sets: number; target: string; rest: number } }) {
+function ExerciseLine({ item }: { item: TemplateExercise }) {
   const exercise = byId[item.exerciseId];
-  return <p><strong>{exercise.name}</strong><span>{item.sets} series · {item.target} · {item.rest}s</span></p>;
+  return <p><strong>{exercise.name}</strong><span>{item.sets} series · {item.target} · {item.rest}s{item.tempo ? ` · ${item.tempo}` : ""}</span></p>;
 }
 
 function Demo({ exercise }: { exercise: typeof exercises[number] }) {
@@ -487,6 +491,21 @@ function liveMs(session: WorkoutSession) {
 function bestSet(sessions: WorkoutSession[], exerciseId: string) {
   const values = sessions.flatMap((session) => session.sets.filter((set) => set.exerciseId === exerciseId).map((set) => set.value ?? Math.min(set.left ?? 0, set.right ?? 0)));
   return values.length ? `mejor registro: ${Math.max(...values)}` : "sin registros";
+}
+
+function targetDefault(target: string, unit: "reps" | "seconds") {
+  const numbers = target.match(/\d+/g)?.map(Number) ?? [];
+  if (!numbers.length) return unit === "seconds" ? 30 : 10;
+  return numbers.length > 1 ? Math.round((numbers[0] + numbers[1]) / 2) : numbers[0];
+}
+
+function estimateTemplateMinutes(template: WorkoutTemplate) {
+  const seconds = template.exercises.reduce((total, item) => {
+    const exercise = byId[item.exerciseId];
+    const work = targetDefault(item.target, exercise.unit) * (exercise.unit === "seconds" ? 1 : 4) * (exercise.unilateral ? 2 : 1);
+    return total + item.sets * (work + item.rest);
+  }, 0);
+  return Math.max(1, Math.round(seconds / 60));
 }
 
 function optionalNumber(value: string) {
