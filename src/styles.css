@@ -72,10 +72,13 @@ p, li, label, summary { line-height: 1.5; font-size: 1rem; }
 .list p, .panel > p + p, details p, .panel > p:not(:last-child) { padding-block: 0.35rem; border-bottom: 1px solid #eee6d7; }
 .list span, .panel p span { display: block; color: #66715b; }
 
-.demo {
+.demo, .exercise-demo {
   min-height: 128px;
   margin: 1rem 0;
   border-radius: 8px;
+}
+
+.demo {
   padding: 1rem;
   display: grid;
   place-content: center;
@@ -86,6 +89,41 @@ p, li, label, summary { line-height: 1.5; font-size: 1rem; }
     repeating-linear-gradient(90deg, #24453f 0 1px, transparent 1px 18px),
     #1d3e38;
   color: #fff8e9;
+}
+
+.exercise-demo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+.exercise-demo div {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #0f2d28;
+}
+
+.exercise-demo img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  display: block;
+  background: #f5f2ea;
+}
+
+.exercise-demo figcaption {
+  min-height: 32px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: #fff8e9;
+}
+
+.exercise-demo p {
+  grid-column: 1 / -1;
+  color: #e5dcc8;
+  font-size: 0.92rem;
 }
 
 .cues { padding-left: 1.1rem; margin: 0; }

@@ -176,10 +176,7 @@ function Training({ refresh }: { refresh: () => Promise<void> }) {
         <p className="eyebrow">{session.template.name} · ejercicio {index + 1}/{session.template.exercises.length}</p>
         <h2>{exercise.name}</h2>
         <p>{exercise.load} · {item.target}</p>
-        <div className="demo" role="img" aria-label={`Demostración: ${exercise.demo}`}>
-          <strong>{exercise.pattern}</strong>
-          <span>{exercise.demo}</span>
-        </div>
+        <Demo exercise={exercise} />
         <ul className="cues">{exercise.cues.map((cue) => <li key={cue}>{cue}</li>)}</ul>
       </article>
       <article className="panel">
@@ -226,6 +223,31 @@ function TwoSideSet({ exerciseId, setNumber, unit, onSave }: { exerciseId: strin
 function ExerciseLine({ item }: { item: { exerciseId: string; sets: number; target: string; rest: number } }) {
   const exercise = byId[item.exerciseId];
   return <p><strong>{exercise.name}</strong><span>{item.sets} series · {item.target} · {item.rest}s</span></p>;
+}
+
+function Demo({ exercise }: { exercise: typeof exercises[number] }) {
+  if (!exercise.images?.length) {
+    return (
+      <div className="demo fallback" role="img" aria-label={`Demostración: ${exercise.demo}`}>
+        <strong>{exercise.pattern}</strong>
+        <span>{exercise.demo}</span>
+      </div>
+    );
+  }
+
+  return (
+    <figure className="exercise-demo">
+      <div>
+        <img src={exercise.images[0]} alt={`${exercise.name}: posición inicial`} />
+        <figcaption>Inicio</figcaption>
+      </div>
+      <div>
+        <img src={exercise.images[1] ?? exercise.images[0]} alt={`${exercise.name}: posición final`} />
+        <figcaption>Final</figcaption>
+      </div>
+      <p>{exercise.imageNote ?? exercise.demo}</p>
+    </figure>
+  );
 }
 
 function History({ data, refresh }: { data: Snapshot; refresh: () => Promise<void> }) {
