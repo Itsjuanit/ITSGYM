@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { BrowserRouter } from "react-router-dom";
 import { byId, exercises, templates, type TemplateExercise, type WorkoutTemplate } from "./data/catalog";
-import { db, exportBackup, finishSession, getProfile, importBackup, saveProfile, startOrResumeSession, updateSession } from "./lib/db";
+import { db, exportBackup, finishSession, getProfile, importBackup, saveProfile, startOrResumeSession, templateForDate, updateSession } from "./lib/db";
 import { formatMinutes, todayKey, uid, weekdayName } from "./lib/dates";
 import type { FitnessAssessment, LoggedSet, PadelSession, Profile, WeightEntry, WorkoutSession } from "./lib/types";
 import "./styles.css";
@@ -66,7 +66,9 @@ function Today({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: (
   const active = data.sessions.find((session) => session.status === "active" || session.status === "paused");
   const completed = data.sessions.filter((session) => session.status === "completed");
   const weekCompleted = completed.filter((session) => session.localDate >= todayKey(new Date(Date.now() - 6 * 86400000))).length;
-  const next = active?.template ?? workoutTemplates[(workoutTemplates.findIndex((item) => item.id === completed[0]?.templateId) + 1) % workoutTemplates.length];
+  const todayTemplate = templateForDate(data.profile, workoutTemplates);
+  const activeMatchesToday = active && (active.sets.length > 0 || active.templateId === todayTemplate.id);
+  const next = activeMatchesToday ? active.template : todayTemplate;
   const start = async () => {
     await startOrResumeSession(workoutTemplates);
     await refresh();
@@ -76,11 +78,11 @@ function Today({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: (
     <section className="stack">
       <article className="panel hero-panel today-hero">
         <div>
-          <p className="eyebrow">{active ? "Sesión abierta" : "Hoy toca"}</p>
-          <h2>{active ? `Continuar ${active.template.name}` : next.name}</h2>
+          <p className="eyebrow">{activeMatchesToday ? "Sesión abierta" : "Hoy toca"}</p>
+          <h2>{activeMatchesToday ? `Continuar ${active.template.name}` : next.name}</h2>
           <p>{next.focus}. {estimateTemplateMinutes(next)} min estimados.</p>
         </div>
-        <button className="primary" onClick={start}>{active ? "Continuar" : "Empezar"}</button>
+        <button className="primary" onClick={start}>{activeMatchesToday ? "Continuar" : "Empezar"}</button>
       </article>
       <article className="quick-stats">
         <div><strong>{weekCompleted}/3</strong><span>esta semana</span></div>

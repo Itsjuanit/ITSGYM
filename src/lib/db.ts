@@ -56,16 +56,21 @@ export const getProfile = async () => normalizeProfile(await db.profile.get("me"
 
 export const saveProfile = (profile: Profile) => db.profile.put(profile);
 
+export function templateForDate(profile: Profile, workoutTemplates = templates, date = new Date()) {
+  const dayIndex = profile.strengthDays.indexOf(date.getDay());
+  return workoutTemplates[dayIndex] ?? workoutTemplates[0];
+}
+
 export async function startOrResumeSession(workoutTemplates = templates) {
+  const next = templateForDate(await getProfile(), workoutTemplates);
   const active = await db.sessions.where("status").anyOf("active", "paused").first();
   if (active) {
-    const resumed = { ...active, status: "active" as const, lastResumedAt: new Date().toISOString() };
+    const template = active.sets.length === 0 && active.templateId !== next.id ? structuredClone(next) : active.template;
+    const resumed = { ...active, templateId: template.id, template, status: "active" as const, lastResumedAt: new Date().toISOString() };
     await db.sessions.put(resumed);
     return resumed;
   }
 
-  const completed = await db.sessions.where("status").equals("completed").reverse().sortBy("startedAt");
-  const next = workoutTemplates[(workoutTemplates.findIndex((item) => item.id === completed[0]?.templateId) + 1) % workoutTemplates.length];
   const session: WorkoutSession = {
     id: uid(),
     templateId: next.id,
