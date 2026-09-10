@@ -42,7 +42,7 @@ const sameDays = (a?: number[], b?: number[]) => JSON.stringify(a ?? []) === JSO
 function normalizeProfile(profile?: Profile): Profile {
   if (!profile) return defaultProfile;
   const wasOldDefault = sameDays(profile.strengthDays, [1, 3, 5]) && sameDays(profile.padelDays, [2, 4]);
-  const wasOldTemplates = profile.customTemplates?.[0]?.name === "A - Base";
+  const wasOldTemplates = ["A - Base", "A - Martes fuerte"].includes(profile.customTemplates?.[0]?.name ?? "");
   return {
     ...defaultProfile,
     ...profile,

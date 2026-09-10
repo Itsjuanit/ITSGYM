@@ -387,9 +387,14 @@ type ExerciseGuideData = { muscles: string[]; steps: string[]; mistake: string; 
 
 const guides: Record<string, ExerciseGuideData> = {
   "goblet-squat": { muscles: ["cuádriceps", "glúteos", "core"], steps: ["Mancuerna pegada al pecho.", "Cadera atrás y rodillas siguiendo los pies.", "Subí empujando el piso sin rebotar."], mistake: "Rodillas colapsando hacia adentro.", easy: "box-squat", hard: "split-squat" },
-  "db-rdl": { muscles: ["isquios", "glúteos", "espalda alta"], steps: ["Mancuerna cerca del cuerpo.", "Cadera atrás con espalda larga.", "Volvé apretando glúteos, sin hiperextender."], mistake: "Bajar con la espalda redondeada.", easy: "glute-bridge", hard: "goblet-squat" },
-  "one-arm-row": { muscles: ["dorsal", "romboides", "bíceps"], steps: ["Apoyá mano libre en muslo o pared.", "Tirá el codo hacia la cadera.", "Frená arriba un segundo."], mistake: "Girar el torso para levantar más.", easy: "prone-swimmer", hard: "db-rdl" },
+  "one-arm-row": { muscles: ["dorsal", "romboides", "bíceps"], steps: ["Apoyá mano libre en muslo o pared.", "Tirá el codo hacia la cadera.", "Frená arriba un segundo."], mistake: "Girar el torso para levantar más.", easy: "prone-swimmer", hard: "biceps-curl" },
   "floor-press": { muscles: ["pecho", "tríceps", "hombro"], steps: ["Acostate con codo a 45 grados.", "Empujá la mancuerna arriba.", "Bajá hasta tocar suave el piso."], mistake: "Subir el hombro hacia la oreja.", easy: "incline-pushup", hard: "goblet-squat" },
+  "shoulder-press": { muscles: ["hombros", "tríceps", "core"], steps: ["Mancuerna al hombro.", "Costillas bajas y abdomen firme.", "Empujá arriba sin arquearte."], mistake: "Compensar con la espalda baja.", easy: "lateral-raise", hard: "floor-press" },
+  "lateral-raise": { muscles: ["hombro lateral", "trapecio"], steps: ["Codo apenas flexionado.", "Subí hasta línea de hombro.", "Bajá lento sin soltar peso."], mistake: "Balancear el cuerpo para subir.", easy: "warm-mobility", hard: "shoulder-press" },
+  "biceps-curl": { muscles: ["bíceps", "antebrazo"], steps: ["Codo pegado al cuerpo.", "Subí sin mover el hombro.", "Bajá completo y controlado."], mistake: "Tirar la espalda hacia atrás.", easy: "hammer-curl", hard: "one-arm-row" },
+  "hammer-curl": { muscles: ["bíceps", "braquial", "antebrazo"], steps: ["Agarre neutral, pulgar arriba.", "Codo quieto.", "Subí y bajá sin impulso."], mistake: "Acortar recorrido por apuro.", easy: "biceps-curl", hard: "one-arm-row" },
+  "overhead-triceps": { muscles: ["tríceps", "hombros", "core"], steps: ["Mancuerna sobre la cabeza.", "Codos apuntan al frente.", "Extendé sin abrir los codos."], mistake: "Arquear lumbar o abrir codos.", easy: "triceps-kickback", hard: "floor-press" },
+  "triceps-kickback": { muscles: ["tríceps", "espalda alta"], steps: ["Apoyo estable.", "Codo alto y quieto.", "Extendé atrás apretando tríceps."], mistake: "Mover todo el brazo como péndulo.", easy: "incline-pushup", hard: "overhead-triceps" },
   "split-squat": { muscles: ["cuádriceps", "glúteos", "aductores"], steps: ["Armá un paso estable.", "Bajá vertical, sin irte hacia adelante.", "Subí usando la pierna delantera."], mistake: "Paso demasiado corto y rodilla incómoda.", easy: "reverse-lunge", hard: "goblet-squat" },
   "incline-pushup": { muscles: ["pecho", "tríceps", "core"], steps: ["Manos en mesa o pared firme.", "Cuerpo en una línea.", "Bajá con control y empujá fuerte."], mistake: "Cadera caída o cuello adelantado.", easy: "floor-press", hard: "split-squat" },
   "side-plank": { muscles: ["oblicuos", "glúteo medio", "hombro"], steps: ["Codo debajo del hombro.", "Cadera alta y cuerpo largo.", "Respirá sin perder postura."], mistake: "Dejar caer la cadera.", easy: "dead-bug", hard: "suitcase-carry" },
@@ -515,7 +520,7 @@ function FitnessSystem({ data }: { data: Snapshot }) {
         </section>
         <section>
           <h3>Entrenamiento</h3>
-          <p>A/B/C divide sentadilla, bisagra, empuje, tirón y core. En Plan podés cambiar ejercicios, series, objetivo y descanso.</p>
+          <p>A/B/C divide piernas + hombros, espalda + bíceps, tríceps + full body. En Plan podés cambiar ejercicios, series, objetivo y descanso.</p>
           <p>Progresión: subí reps solo cuando dos sesiones salgan cómodas y sin dolor.</p>
         </section>
         <section>
