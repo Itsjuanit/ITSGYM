@@ -202,7 +202,10 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
   const item = session.template.exercises[index];
   const exercise = byId[item.exerciseId];
   const done = session.sets.filter((set) => set.exerciseId === exercise.id && set.done).length;
+  const isExerciseDone = done >= item.sets;
+  const isLastExercise = index === session.template.exercises.length - 1;
   const restLeft = restUntil ? Math.max(0, Math.ceil((restUntil - now) / 1000)) : 0;
+  const progress = ((index + Math.min(done / item.sets, 1)) / session.template.exercises.length) * 100;
   const save = async (next: WorkoutSession) => {
     setSession(next);
     await updateSession(next);
@@ -210,10 +213,15 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
   };
   const logSet = async (value: LoggedSet) => {
     await save({ ...session, sets: [...session.sets, value] });
-    setRestUntil(Date.now() + item.rest * 1000);
+    setRestUntil(done + 1 < item.sets && item.rest ? Date.now() + item.rest * 1000 : undefined);
   };
   const undo = async () => {
+    setRestUntil(undefined);
     await save({ ...session, sets: session.sets.slice(0, -1) });
+  };
+  const nextExercise = () => {
+    setRestUntil(undefined);
+    setIndex(Math.min(session.template.exercises.length - 1, index + 1));
   };
   const end = async (status: "completed" | "partial") => {
     await finishSession({ ...session, activeMs: liveMs(session) }, status);
@@ -224,23 +232,34 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
     <section className="stack">
       <article className="panel hero-panel">
         <p className="eyebrow">{session.template.name} · ejercicio {index + 1}/{session.template.exercises.length}</p>
+        <div className="workout-progress" aria-label={`Progreso ${Math.round(progress)}%`}><span style={{ width: `${progress}%` }} /></div>
         <h2>{exercise.name}</h2>
         <p>{exercise.load} · {item.target}</p>
         {item.tempo && <p>Tempo: {item.tempo}</p>}
         <Demo exercise={exercise} />
-        <ul className="cues">{exercise.cues.map((cue) => <li key={cue}>{cue}</li>)}</ul>
       </article>
       <article className="panel">
         <h2>Series</h2>
-        <p>{done}/{item.sets} confirmadas. Referencia anterior: completar con técnica cómoda.</p>
-        {exercise.unilateral
-          ? <TwoSideSet key={exercise.id} exerciseId={exercise.id} setNumber={done + 1} unit={exercise.unit} initialValue={targetDefault(item.target, exercise.unit)} onSave={logSet} />
-          : <OneValueSet key={exercise.id} exerciseId={exercise.id} setNumber={done + 1} unit={exercise.unit} initialValue={targetDefault(item.target, exercise.unit)} onSave={logSet} />}
+        <p>Serie {Math.min(done + 1, item.sets)}/{item.sets} · {done} confirmadas · descanso {item.rest}s</p>
+        {restLeft > 0 ? (
+          <div className="rest-card">
+            <span>Descanso</span>
+            <strong>{restLeft}s</strong>
+            <button className="primary" onClick={() => setRestUntil(undefined)}>Saltar descanso</button>
+          </div>
+        ) : isExerciseDone ? (
+          <div className="rest-card done">
+            <span>Ejercicio completo</span>
+            <strong>{done}/{item.sets}</strong>
+            <button className="primary" onClick={isLastExercise ? () => end("completed") : nextExercise}>{isLastExercise ? "Finalizar" : "Siguiente ejercicio"}</button>
+          </div>
+        ) : exercise.unilateral
+          ? <TwoSideSet key={`${exercise.id}-${done}`} exerciseId={exercise.id} setNumber={done + 1} unit={exercise.unit} initialValue={targetDefault(item.target, exercise.unit)} onSave={logSet} />
+          : <OneValueSet key={`${exercise.id}-${done}`} exerciseId={exercise.id} setNumber={done + 1} unit={exercise.unit} initialValue={targetDefault(item.target, exercise.unit)} onSave={logSet} />}
         <div className="actions">
           <button onClick={undo} disabled={!session.sets.length}>Deshacer</button>
-          <button onClick={() => setIndex(Math.min(session.template.exercises.length - 1, index + 1))} disabled={index === session.template.exercises.length - 1}>Siguiente</button>
+          <button onClick={nextExercise} disabled={isLastExercise}>Siguiente</button>
         </div>
-        {restLeft > 0 && <p className="timer">Descanso: {restLeft}s</p>}
       </article>
       <div className="actions sticky-actions">
         <button onClick={() => save({ ...session, status: "paused", activeMs: liveMs(session), lastResumedAt: undefined })}>Pausar</button>
@@ -256,7 +275,7 @@ function OneValueSet({ exerciseId, setNumber, unit, initialValue, onSave }: { ex
   return (
     <div className="set-row">
       <label>{unit === "seconds" ? "Segundos" : "Reps"} <input type="number" min="0" value={value} onChange={(e) => setValue(Number(e.target.value))} /></label>
-      <button onClick={() => onSave({ exerciseId, set: setNumber, value, done: true })}>Confirmar</button>
+      <button className="primary" onClick={() => onSave({ exerciseId, set: setNumber, value, done: true })}>Registrar serie</button>
     </div>
   );
 }
@@ -268,7 +287,7 @@ function TwoSideSet({ exerciseId, setNumber, unit, initialValue, onSave }: { exe
     <div className="set-row two">
       <label>Izquierda <input type="number" min="0" value={left} onChange={(e) => setLeft(Number(e.target.value))} /></label>
       <label>Derecha <input type="number" min="0" value={right} onChange={(e) => setRight(Number(e.target.value))} /></label>
-      <button onClick={() => onSave({ exerciseId, set: setNumber, left, right, done: true })}>Confirmar</button>
+      <button className="primary" onClick={() => onSave({ exerciseId, set: setNumber, left, right, done: true })}>Registrar serie</button>
     </div>
   );
 }
@@ -279,27 +298,70 @@ function ExerciseLine({ item }: { item: TemplateExercise }) {
 }
 
 function Demo({ exercise }: { exercise: typeof exercises[number] }) {
+  const guide = exerciseGuide(exercise);
+
   if (!exercise.images?.length) {
     return (
-      <div className="demo fallback" role="img" aria-label={`Demostración: ${exercise.demo}`}>
-        <strong>{exercise.pattern}</strong>
-        <span>{exercise.demo}</span>
-      </div>
+      <>
+        <div className="demo fallback" role="img" aria-label={`Demostración: ${exercise.demo}`}>
+          <strong>{exercise.pattern}</strong>
+          <span>{exercise.demo}</span>
+        </div>
+        <ExerciseGuide guide={guide} />
+      </>
     );
   }
 
   return (
-    <figure className="exercise-demo">
-      <div>
-        <img src={exercise.images[0]} alt={`${exercise.name}: posición inicial`} />
-        <figcaption>Inicio</figcaption>
-      </div>
-      <div>
-        <img src={exercise.images[1] ?? exercise.images[0]} alt={`${exercise.name}: posición final`} />
-        <figcaption>Final</figcaption>
-      </div>
-      <p>{exercise.imageNote ?? exercise.demo}</p>
-    </figure>
+    <>
+      <figure className="exercise-demo">
+        <div>
+          <img src={exercise.images[0]} alt={`${exercise.name}: posición inicial`} />
+          <figcaption>Inicio</figcaption>
+        </div>
+        <div>
+          <img src={exercise.images[1] ?? exercise.images[0]} alt={`${exercise.name}: posición final`} />
+          <figcaption>Final</figcaption>
+        </div>
+        <p>{exercise.imageNote ?? exercise.demo}</p>
+      </figure>
+      <ExerciseGuide guide={guide} />
+    </>
+  );
+}
+
+type ExerciseGuideData = { muscles: string[]; steps: string[]; mistake: string; easy?: string; hard?: string };
+
+const guides: Record<string, ExerciseGuideData> = {
+  "goblet-squat": { muscles: ["cuádriceps", "glúteos", "core"], steps: ["Mancuerna pegada al pecho.", "Cadera atrás y rodillas siguiendo los pies.", "Subí empujando el piso sin rebotar."], mistake: "Rodillas colapsando hacia adentro.", easy: "box-squat", hard: "split-squat" },
+  "db-rdl": { muscles: ["isquios", "glúteos", "espalda alta"], steps: ["Mancuerna cerca del cuerpo.", "Cadera atrás con espalda larga.", "Volvé apretando glúteos, sin hiperextender."], mistake: "Bajar con la espalda redondeada.", easy: "glute-bridge", hard: "goblet-squat" },
+  "one-arm-row": { muscles: ["dorsal", "romboides", "bíceps"], steps: ["Apoyá mano libre en muslo o pared.", "Tirá el codo hacia la cadera.", "Frená arriba un segundo."], mistake: "Girar el torso para levantar más.", easy: "prone-swimmer", hard: "db-rdl" },
+  "floor-press": { muscles: ["pecho", "tríceps", "hombro"], steps: ["Acostate con codo a 45 grados.", "Empujá la mancuerna arriba.", "Bajá hasta tocar suave el piso."], mistake: "Subir el hombro hacia la oreja.", easy: "incline-pushup", hard: "goblet-squat" },
+  "split-squat": { muscles: ["cuádriceps", "glúteos", "aductores"], steps: ["Armá un paso estable.", "Bajá vertical, sin irte hacia adelante.", "Subí usando la pierna delantera."], mistake: "Paso demasiado corto y rodilla incómoda.", easy: "reverse-lunge", hard: "goblet-squat" },
+  "incline-pushup": { muscles: ["pecho", "tríceps", "core"], steps: ["Manos en mesa o pared firme.", "Cuerpo en una línea.", "Bajá con control y empujá fuerte."], mistake: "Cadera caída o cuello adelantado.", easy: "floor-press", hard: "split-squat" },
+  "side-plank": { muscles: ["oblicuos", "glúteo medio", "hombro"], steps: ["Codo debajo del hombro.", "Cadera alta y cuerpo largo.", "Respirá sin perder postura."], mistake: "Dejar caer la cadera.", easy: "dead-bug", hard: "suitcase-carry" },
+  "dead-bug": { muscles: ["core profundo", "flexores de cadera"], steps: ["Lumbar quieta contra el piso.", "Extendé brazo y pierna opuestos.", "Exhalá lento al extender."], mistake: "Arquear la zona lumbar.", easy: "breathing", hard: "side-plank" },
+  "suitcase-carry": { muscles: ["oblicuos", "agarre", "trapecio"], steps: ["Mancuerna a un lado.", "Postura alta y costillas bajas.", "Caminá o sostené sin inclinarte."], mistake: "Compensar inclinando el torso.", easy: "side-plank", hard: "one-arm-row" },
+  "calf-raise": { muscles: ["gemelos", "sóleo"], steps: ["Apoyate si necesitás equilibrio.", "Subí talones completo.", "Pausá arriba y bajá lento."], mistake: "Rebotar rápido sin rango.", easy: "march-place", hard: "split-squat" }
+};
+
+function exerciseGuide(exercise: typeof exercises[number]): ExerciseGuideData {
+  return guides[exercise.id] ?? {
+    muscles: [exercise.pattern],
+    steps: exercise.cues,
+    mistake: "Si aparece dolor, bajá dificultad o saltealo.",
+    easy: exercise.alternatives[0]
+  };
+}
+
+function ExerciseGuide({ guide }: { guide: ExerciseGuideData }) {
+  return (
+    <div className="exercise-guide">
+      <div className="muscles">{guide.muscles.map((muscle) => <span key={muscle}>{muscle}</span>)}</div>
+      <ol>{guide.steps.map((step) => <li key={step}>{step}</li>)}</ol>
+      <p><strong>Error común:</strong> {guide.mistake}</p>
+      <p>{guide.easy && <span>Más fácil: {byId[guide.easy]?.name}. </span>}{guide.hard && <span>Más difícil: {byId[guide.hard]?.name}.</span>}</p>
+    </div>
   );
 }
 
