@@ -87,10 +87,12 @@ export async function startOrResumeSession(workoutTemplates = templates) {
 }
 
 export async function updateSession(session: WorkoutSession) {
-  const activeMs = session.status === "active" && session.lastResumedAt
-    ? session.activeMs + Date.now() - new Date(session.lastResumedAt).getTime()
-    : session.activeMs;
-  await db.sessions.put({ ...session, activeMs, lastResumedAt: session.status === "active" ? new Date().toISOString() : undefined });
+  const current = await db.sessions.get(session.id);
+  const next = current ? { ...current, ...session } : session;
+  const activeMs = next.status === "active" && next.lastResumedAt
+    ? next.activeMs + Date.now() - new Date(next.lastResumedAt).getTime()
+    : next.activeMs;
+  await db.sessions.put({ ...next, activeMs, lastResumedAt: next.status === "active" ? new Date().toISOString() : undefined });
 }
 
 export async function finishSession(session: WorkoutSession, status: "completed" | "partial") {

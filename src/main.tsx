@@ -37,7 +37,12 @@ function useSnapshot() {
 }
 
 async function syncCloudNow(user: User | null) {
-  if (user) await saveCloudBackup(user.uid, await exportBackup());
+  if (!user) return;
+  try {
+    await saveCloudBackup(user.uid, await exportBackup());
+  } catch (error) {
+    console.warn("No se pudo sincronizar Firebase.", error);
+  }
 }
 
 function AppShell() {
@@ -77,22 +82,31 @@ function CloudBar({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
   const [message, setMessage] = useState("");
   const pullCloud = async () => {
     if (!data.user) return;
-    const backup = await loadCloudBackup(data.user.uid);
-    if (!backup) {
-      setMessage("Sin respaldo en Firebase");
-      return;
+    try {
+      const backup = await loadCloudBackup(data.user.uid);
+      if (!backup) {
+        setMessage("Sin respaldo en Firebase");
+        return;
+      }
+      await importBackup(backup);
+      await refresh();
+      setMessage("Datos bajados");
+    } catch {
+      setMessage("No se pudo bajar Firebase");
     }
-    await importBackup(backup);
-    await refresh();
-    setMessage("Datos bajados");
   };
   const pushCloud = async () => {
-    await syncCloudNow(data.user);
-    setMessage("Datos subidos");
+    if (!data.user) return;
+    try {
+      await saveCloudBackup(data.user.uid, await exportBackup());
+      setMessage("Datos subidos");
+    } catch {
+      setMessage("No se pudo subir Firebase");
+    }
   };
 
   if (!cloudEnabled) return <div className="cloud-bar off"><span>Firebase sin configurar</span><NavLink to="/ajustes">Configurar</NavLink></div>;
-  if (!data.user) return <div className="cloud-bar"><span>Guardado local</span><button onClick={loginCloud}>Entrar con Google</button></div>;
+  if (!data.user) return <div className="cloud-bar"><span>{message || "Guardado local"}</span><button onClick={() => loginCloud().catch(() => setMessage("Google no autorizado"))}>Entrar con Google</button></div>;
   return (
     <div className="cloud-bar synced">
       <span>{message || `Sincronizado: ${data.user.email}`}</span>
@@ -299,7 +313,8 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
     setIndex(Math.min(session.template.exercises.length - 1, index + 1));
   };
   const end = async (status: "completed" | "partial") => {
-    await finishSession({ ...session, activeMs: liveMs(session) }, status);
+    const latest = await db.sessions.get(session.id);
+    await finishSession({ ...(latest ?? session), activeMs: liveMs(latest ?? session) }, status);
     await syncCloudNow(data.user);
     await refresh();
     navigate("/historial");
