@@ -8,7 +8,8 @@ export default defineConfig({
       output: {
         entryFileNames: "assets/app.js",
         chunkFileNames: "assets/[name].js",
-        assetFileNames: "assets/[name][extname]"
+        assetFileNames: "assets/[name][extname]",
+        manualChunks: (id) => id.includes("node_modules/firebase") ? "firebase" : undefined
       }
     }
   },

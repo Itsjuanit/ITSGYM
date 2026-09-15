@@ -30,6 +30,7 @@ export type LoggedSet = {
   left?: number;
   right?: number;
   value?: number;
+  rpe?: number;
   done: boolean;
 };
 

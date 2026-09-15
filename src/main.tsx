@@ -3,9 +3,11 @@ import { createRoot } from "react-dom/client";
 import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { BrowserRouter } from "react-router-dom";
 import { byId, exercises, templates, type TemplateExercise, type WorkoutTemplate } from "./data/catalog";
+import { cloudEnabled, loadCloudBackup, loginCloud, logoutCloud, saveCloudBackup, watchCloudUser } from "./lib/cloud";
 import { db, exportBackup, finishSession, getProfile, importBackup, saveProfile, startOrResumeSession, templateForDate, updateSession } from "./lib/db";
 import { formatMinutes, todayKey, uid, weekdayName } from "./lib/dates";
 import type { FitnessAssessment, LoggedSet, PadelSession, Profile, WeightEntry, WorkoutSession } from "./lib/types";
+import type { User } from "firebase/auth";
 import "./styles.css";
 
 type Snapshot = {
@@ -13,20 +15,29 @@ type Snapshot = {
   sessions: WorkoutSession[];
   padel: PadelSession[];
   weights: WeightEntry[];
+  user: User | null;
 };
 
-const empty: Snapshot = { profile: { id: "me", strengthDays: [2, 3, 4], padelDays: [], preferredMinutes: 35, goal: "", customTemplates: templates }, sessions: [], padel: [], weights: [] };
+const empty: Snapshot = { profile: { id: "me", strengthDays: [2, 3, 4], padelDays: [], preferredMinutes: 35, goal: "", customTemplates: templates }, sessions: [], padel: [], weights: [], user: null };
 
 function useSnapshot() {
   const [data, setData] = useState<Snapshot>(empty);
+  const [user, setUser] = useState<User | null>(null);
   const refresh = async () => setData({
     profile: await getProfile(),
     sessions: await db.sessions.orderBy("startedAt").reverse().toArray(),
     padel: await db.padel.orderBy("date").reverse().toArray(),
-    weights: await db.weights.orderBy("date").reverse().toArray()
+    weights: await db.weights.orderBy("date").reverse().toArray(),
+    user
   });
+  useEffect(() => watchCloudUser(setUser), []);
   useEffect(() => { refresh(); }, []);
+  useEffect(() => { refresh(); }, [user]);
   return { data, refresh };
+}
+
+async function syncCloudNow(user: User | null) {
+  if (user) await saveCloudBackup(user.uid, await exportBackup());
 }
 
 function AppShell() {
@@ -140,6 +151,7 @@ function Plan({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: ()
   useEffect(() => setDraft(workoutTemplates), [workoutTemplates]);
   const addPadel = async () => {
     await db.padel.add({ id: uid(), ...padel });
+    await syncCloudNow(data.user);
     await refresh();
   };
   const updateExercise = (templateId: WorkoutTemplate["id"], index: number, patch: Partial<TemplateExercise>) => {
@@ -159,6 +171,7 @@ function Plan({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: ()
   };
   const saveRoutines = async () => {
     await saveProfile({ ...data.profile, strengthDays: [2, 3, 4], padelDays: [], customTemplates: draft });
+    await syncCloudNow(data.user);
     setMessage("Rutinas guardadas.");
     await refresh();
   };
@@ -240,6 +253,7 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
   const save = async (next: WorkoutSession) => {
     setSession(next);
     await updateSession(next);
+    await syncCloudNow(data.user);
     await refresh();
   };
   const logSet = async (value: LoggedSet) => {
@@ -256,6 +270,7 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
   };
   const end = async (status: "completed" | "partial") => {
     await finishSession({ ...session, activeMs: liveMs(session) }, status);
+    await syncCloudNow(data.user);
     await refresh();
     navigate("/historial");
   };
@@ -314,10 +329,12 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
 
 function OneValueSet({ exerciseId, setNumber, unit, initialValue, onSave }: { exerciseId: string; setNumber: number; unit: "reps" | "seconds"; initialValue: number; onSave: (set: LoggedSet) => void }) {
   const [value, setValue] = useState(initialValue);
+  const [rpe, setRpe] = useState(8);
   return (
     <div className="set-row">
       <label>{unit === "seconds" ? "Segundos" : "Reps"} <input type="number" min="0" value={value} onChange={(e) => setValue(Number(e.target.value))} /></label>
-      <button className="primary" onClick={() => onSave({ exerciseId, set: setNumber, value, done: true })}>Registrar serie</button>
+      <RpeInput value={rpe} onChange={setRpe} />
+      <button className="primary" onClick={() => onSave({ exerciseId, set: setNumber, value, rpe, done: true })}>Registrar serie</button>
     </div>
   );
 }
@@ -325,12 +342,28 @@ function OneValueSet({ exerciseId, setNumber, unit, initialValue, onSave }: { ex
 function TwoSideSet({ exerciseId, setNumber, unit, initialValue, onSave }: { exerciseId: string; setNumber: number; unit: "reps" | "seconds"; initialValue: number; onSave: (set: LoggedSet) => void }) {
   const [left, setLeft] = useState(initialValue);
   const [right, setRight] = useState(initialValue);
+  const [rpe, setRpe] = useState(8);
   return (
     <div className="set-row two">
       <label>Izquierda <input type="number" min="0" value={left} onChange={(e) => setLeft(Number(e.target.value))} /></label>
       <label>Derecha <input type="number" min="0" value={right} onChange={(e) => setRight(Number(e.target.value))} /></label>
-      <button className="primary" onClick={() => onSave({ exerciseId, set: setNumber, left, right, done: true })}>Registrar serie</button>
+      <RpeInput value={rpe} onChange={setRpe} />
+      <button className="primary" onClick={() => onSave({ exerciseId, set: setNumber, left, right, rpe, done: true })}>Registrar serie</button>
     </div>
+  );
+}
+
+function RpeInput({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+  return (
+    <label>Esfuerzo
+      <select value={value} onChange={(event) => onChange(Number(event.target.value))}>
+        <option value="6">Fácil · RPE 6</option>
+        <option value="7">Bien · RPE 7</option>
+        <option value="8">Difícil · RPE 8</option>
+        <option value="9">Muy difícil · RPE 9</option>
+        <option value="10">Máximo · RPE 10</option>
+      </select>
+    </label>
   );
 }
 
@@ -432,6 +465,7 @@ function History({ data, refresh }: { data: Snapshot; refresh: () => Promise<voi
   const remove = async (id: string) => {
     if (confirm("¿Eliminar esta sesión?")) {
       await db.sessions.delete(id);
+      await syncCloudNow(data.user);
       await refresh();
     }
   };
@@ -447,7 +481,7 @@ function History({ data, refresh }: { data: Snapshot; refresh: () => Promise<voi
           <p>{session.localDate} · {formatMinutes(session.activeMs)} · {session.sets.length} series</p>
           <details>
             <summary>Detalle</summary>
-            {session.sets.map((set, i) => <p key={`${set.exerciseId}-${i}`}>{byId[set.exerciseId].name}: {set.left != null ? `izquierda ${set.left} / derecha ${set.right}` : set.value}</p>)}
+            {session.sets.map((set, i) => <p key={`${set.exerciseId}-${i}`}>{byId[set.exerciseId].name}: {set.left != null ? `izquierda ${set.left} / derecha ${set.right}` : set.value}{set.rpe ? ` · RPE ${set.rpe}` : ""}</p>)}
           </details>
           <button className="danger" onClick={() => remove(session.id)}>Eliminar</button>
         </article>
@@ -462,6 +496,7 @@ function Progress({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
   const partial = data.sessions.filter((session) => session.status === "partial").length;
   const addWeight = async () => {
     await db.weights.add({ id: uid(), ...weight });
+    await syncCloudNow(data.user);
     await refresh();
   };
   const weekly = completed.filter((session) => session.localDate >= todayKey(new Date(Date.now() - 6 * 86400000))).length;
@@ -570,6 +605,7 @@ function Settings({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
     if (!file) return;
     try {
       await importBackup(JSON.parse(await file.text()));
+      await syncCloudNow(data.user);
       setMessage("Respaldo restaurado.");
       await refresh();
     } catch (error) {
@@ -587,8 +623,36 @@ function Settings({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
     }
     window.location.reload();
   };
+  const pullCloud = async () => {
+    if (!data.user) return;
+    const backup = await loadCloudBackup(data.user.uid);
+    if (!backup) {
+      setMessage("No hay respaldo en la nube todavía.");
+      return;
+    }
+    await importBackup(backup);
+    await refresh();
+    setMessage("Datos recuperados desde Firebase.");
+  };
+  const pushCloud = async () => {
+    await syncCloudNow(data.user);
+    setMessage("Datos guardados en Firebase.");
+  };
   return (
     <section className="stack">
+      <article className="panel">
+        <h2>Firebase</h2>
+        <p>{cloudEnabled ? data.user ? `Conectado como ${data.user.email}` : "Entrá con Google para sincronizar este celular." : "Faltan variables VITE_FIREBASE_*."}</p>
+        <div className="actions">
+          {data.user
+            ? <>
+              <button onClick={pushCloud}>Subir a la nube</button>
+              <button onClick={pullCloud}>Bajar de la nube</button>
+              <button onClick={logoutCloud}>Salir</button>
+            </>
+            : <button onClick={loginCloud} disabled={!cloudEnabled}>Entrar con Google</button>}
+        </div>
+      </article>
       <article className="panel">
         <h2>Ajustes</h2>
         <label>Duración preferida <input type="number" min="20" max="60" value={profile.preferredMinutes} onChange={(e) => setProfile({ ...profile, preferredMinutes: Number(e.target.value) })} /></label>
@@ -617,7 +681,7 @@ function Settings({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
           <label>Nutrición actual <textarea value={profile.assessment?.nutrition ?? ""} onChange={(e) => patchAssessment({ nutrition: e.target.value })} /></label>
           <label>Recuperación <textarea value={profile.assessment?.recovery ?? ""} onChange={(e) => patchAssessment({ recovery: e.target.value })} /></label>
         </div>
-        <button onClick={async () => { await saveProfile(profile); await refresh(); setMessage("Ajustes guardados."); }}>Guardar ajustes</button>
+        <button onClick={async () => { await saveProfile(profile); await syncCloudNow(data.user); await refresh(); setMessage("Ajustes guardados."); }}>Guardar ajustes</button>
       </article>
       <article className="panel">
         <h2>Respaldo</h2>
