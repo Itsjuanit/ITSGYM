@@ -65,11 +65,16 @@ function Today({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: (
   const navigate = useNavigate();
   const active = data.sessions.find((session) => session.status === "active" || session.status === "paused");
   const completed = data.sessions.filter((session) => session.status === "completed");
+  const completedToday = completed.find((session) => session.localDate === todayKey());
   const weekCompleted = completed.filter((session) => session.localDate >= todayKey(new Date(Date.now() - 6 * 86400000))).length;
   const todayTemplate = templateForDate(data.profile, workoutTemplates);
   const activeMatchesToday = active && (active.sets.length > 0 || active.templateId === todayTemplate.id);
   const next = activeMatchesToday ? active.template : todayTemplate;
   const start = async () => {
+    if (!activeMatchesToday && completedToday) {
+      navigate("/historial");
+      return;
+    }
     await startOrResumeSession(workoutTemplates);
     await refresh();
     navigate("/entrenar");
@@ -78,11 +83,11 @@ function Today({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: (
     <section className="stack">
       <article className="panel hero-panel today-hero">
         <div>
-          <p className="eyebrow">{activeMatchesToday ? "Sesión abierta" : "Hoy toca"}</p>
-          <h2>{activeMatchesToday ? `Continuar ${active.template.name}` : next.name}</h2>
-          <p>{next.focus}. {estimateTemplateMinutes(next)} min estimados.</p>
+          <p className="eyebrow">{activeMatchesToday ? "Sesión abierta" : completedToday ? "Completado hoy" : "Hoy toca"}</p>
+          <h2>{activeMatchesToday ? `Continuar ${active.template.name}` : completedToday ? completedToday.template.name : next.name}</h2>
+          <p>{completedToday && !activeMatchesToday ? `${completedToday.sets.length} series registradas.` : `${next.focus}. ${estimateTemplateMinutes(next)} min estimados.`}</p>
         </div>
-        <button className="primary" onClick={start}>{activeMatchesToday ? "Continuar" : "Empezar"}</button>
+        <button className="primary" onClick={start}>{activeMatchesToday ? "Continuar" : completedToday ? "Ver historial" : "Empezar"}</button>
       </article>
       <article className="quick-stats">
         <div><strong>{weekCompleted}/3</strong><span>esta semana</span></div>
@@ -97,7 +102,7 @@ function Today({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: (
         <Week profile={data.profile} workoutTemplates={workoutTemplates} />
       </article>
       <article className="panel">
-        <h2>Próxima rutina</h2>
+        <h2>{completedToday && !activeMatchesToday ? "Rutina completada" : "Próxima rutina"}</h2>
         <SessionPreview template={next} />
       </article>
       <article className="panel compact-panel">
@@ -571,6 +576,17 @@ function Settings({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
       setMessage(error instanceof Error ? error.message : "No se pudo restaurar.");
     }
   };
+  const forceUpdate = async () => {
+    setMessage("Buscando última versión...");
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.update()));
+    }
+    if ("caches" in window) {
+      await Promise.all((await caches.keys()).map((key) => caches.delete(key)));
+    }
+    window.location.reload();
+  };
   return (
     <section className="stack">
       <article className="panel">
@@ -611,6 +627,11 @@ function Settings({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
           <label className="file">Importar <input type="file" accept="application/json" onChange={(e) => upload(e.target.files?.[0])} /></label>
         </div>
         {message && <p className="status">{message}</p>}
+      </article>
+      <article className="panel">
+        <h2>Versión</h2>
+        <p>Si Chrome muestra una versión vieja después de un deploy, forzá la actualización y recargá la app.</p>
+        <button onClick={forceUpdate}>Actualizar app</button>
       </article>
     </section>
   );
