@@ -37,12 +37,8 @@ function useSnapshot() {
 }
 
 async function syncCloudNow(user: User | null) {
-  if (!user) return;
-  try {
-    await saveCloudBackup(user.uid, await exportBackup());
-  } catch (error) {
-    console.warn("No se pudo sincronizar Firebase.", error);
-  }
+  if (!user) throw new Error("Necesitás entrar con Google.");
+  await saveCloudBackup(user.uid, await exportBackup());
 }
 
 function AppShell() {
@@ -106,7 +102,7 @@ function CloudBar({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
   };
 
   if (!cloudEnabled) return <div className="cloud-bar off"><span>Firebase sin configurar</span><NavLink to="/ajustes">Configurar</NavLink></div>;
-  if (!data.user) return <div className="cloud-bar"><span>{message || "Guardado local"}</span><button onClick={() => loginCloud().catch(() => setMessage("Google no autorizado"))}>Entrar con Google</button></div>;
+  if (!data.user) return <div className="cloud-bar"><span>{message || "Firebase requerido"}</span><button onClick={() => loginCloud().catch(() => setMessage("Google no autorizado"))}>Entrar con Google</button></div>;
   return (
     <div className="cloud-bar synced">
       <span>{message || `Sincronizado: ${data.user.email}`}</span>
@@ -126,6 +122,10 @@ function Today({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: (
   const activeMatchesToday = active && (active.sets.length > 0 || active.templateId === todayTemplate.id);
   const next = activeMatchesToday ? active.template : todayTemplate;
   const start = async () => {
+    if (!data.user) {
+      navigate("/ajustes");
+      return;
+    }
     if (!activeMatchesToday && completedToday) {
       navigate("/historial");
       return;
@@ -194,6 +194,10 @@ function Plan({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: ()
   const [message, setMessage] = useState("");
   useEffect(() => setDraft(workoutTemplates), [workoutTemplates]);
   const addPadel = async () => {
+    if (!data.user) {
+      setMessage("Entrá con Google para guardar en Firebase.");
+      return;
+    }
     await db.padel.add({ id: uid(), ...padel });
     await syncCloudNow(data.user);
     await refresh();
@@ -214,6 +218,10 @@ function Plan({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: ()
       : template));
   };
   const saveRoutines = async () => {
+    if (!data.user) {
+      setMessage("Entrá con Google para guardar en Firebase.");
+      return;
+    }
     await saveProfile({ ...data.profile, strengthDays: [2, 3, 4], padelDays: [], customTemplates: draft });
     await syncCloudNow(data.user);
     setMessage("Rutinas guardadas.");
@@ -280,11 +288,23 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
   const [index, setIndex] = useState(0);
   const [restUntil, setRestUntil] = useState<number>();
   const [now, setNow] = useState(Date.now());
+  const [error, setError] = useState("");
   useEffect(() => { startOrResumeSession(data.profile.customTemplates ?? templates).then(setSession); }, [data.profile.customTemplates]);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+  if (!data.user) {
+    return (
+      <section className="stack">
+        <article className="panel">
+          <h2>Firebase requerido</h2>
+          <p>Para que no se pierdan entrenamientos, entrá con Google antes de entrenar.</p>
+          <button className="primary" onClick={() => loginCloud()}>Entrar con Google</button>
+        </article>
+      </section>
+    );
+  }
   if (!session) return <p>Cargando sesión...</p>;
   const item = session.template.exercises[index];
   const exercise = byId[item.exerciseId];
@@ -295,10 +315,15 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
   const stateLabel = restLeft ? "Descanso" : isExerciseDone ? "Listo" : "Registrar";
   const progress = ((index + Math.min(done / item.sets, 1)) / session.template.exercises.length) * 100;
   const save = async (next: WorkoutSession) => {
-    setSession(next);
-    await updateSession(next);
-    await syncCloudNow(data.user);
-    await refresh();
+    try {
+      setError("");
+      setSession(next);
+      await updateSession(next);
+      await syncCloudNow(data.user);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar en Firebase.");
+    }
   };
   const logSet = async (value: LoggedSet) => {
     await save({ ...session, sets: [...session.sets, value] });
@@ -313,11 +338,16 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
     setIndex(Math.min(session.template.exercises.length - 1, index + 1));
   };
   const end = async (status: "completed" | "partial") => {
-    const latest = await db.sessions.get(session.id);
-    await finishSession({ ...(latest ?? session), activeMs: liveMs(latest ?? session) }, status);
-    await syncCloudNow(data.user);
-    await refresh();
-    navigate("/historial");
+    try {
+      setError("");
+      const latest = await db.sessions.get(session.id);
+      await finishSession({ ...(latest ?? session), activeMs: liveMs(latest ?? session) }, status);
+      await syncCloudNow(data.user);
+      await refresh();
+      navigate("/historial");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar en Firebase.");
+    }
   };
   return (
     <section className="stack training">
@@ -339,6 +369,7 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
         <Demo exercise={exercise} />
       </article>
       <article className="panel action-panel">
+        {error && <p className="status danger-text">{error}</p>}
         <div className="section-title">
           <h2>Serie {Math.min(done + 1, item.sets)}/{item.sets}</h2>
           <span>{done} confirmadas</span>
@@ -540,6 +571,7 @@ function Progress({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
   const completed = data.sessions.filter((session) => session.status === "completed");
   const partial = data.sessions.filter((session) => session.status === "partial").length;
   const addWeight = async () => {
+    if (!data.user) return;
     await db.weights.add({ id: uid(), ...weight });
     await syncCloudNow(data.user);
     await refresh();

@@ -71,6 +71,7 @@ p, li, label, summary { line-height: 1.5; font-size: 1rem; }
 .primary { background: var(--accent); border-color: var(--accent); color: var(--ink); width: 100%; margin-top: 1rem; }
 .danger { color: #8b1f1f; border-color: #e3b3a7; }
 .status { color: #20623c; font-weight: 700; }
+.danger-text { color: #8b1f1f; }
 .icon-link { white-space: nowrap; }
 
 .cloud-bar {
