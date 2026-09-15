@@ -87,8 +87,8 @@ function CloudBar({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
       await importBackup(backup);
       await refresh();
       setMessage("Datos bajados");
-    } catch {
-      setMessage("No se pudo bajar Firebase");
+    } catch (error) {
+      setMessage(errorMessage(error));
     }
   };
   const pushCloud = async () => {
@@ -96,13 +96,13 @@ function CloudBar({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
     try {
       await saveCloudBackup(data.user.uid, await exportBackup());
       setMessage("Datos subidos");
-    } catch {
-      setMessage("No se pudo subir Firebase");
+    } catch (error) {
+      setMessage(errorMessage(error));
     }
   };
 
   if (!cloudEnabled) return <div className="cloud-bar off"><span>Firebase sin configurar</span><NavLink to="/ajustes">Configurar</NavLink></div>;
-  if (!data.user) return <div className="cloud-bar"><span>{message || "Firebase requerido"}</span><button onClick={() => loginCloud().catch(() => setMessage("Google no autorizado"))}>Entrar con Google</button></div>;
+  if (!data.user) return <div className="cloud-bar"><span>{message || "Firebase requerido"}</span><button onClick={() => loginCloud().catch((error) => setMessage(errorMessage(error)))}>Entrar con Google</button></div>;
   return (
     <div className="cloud-bar synced">
       <span>{message || `Sincronizado: ${data.user.email}`}</span>
@@ -702,18 +702,34 @@ function Settings({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
   };
   const pullCloud = async () => {
     if (!data.user) return;
-    const backup = await loadCloudBackup(data.user.uid);
-    if (!backup) {
-      setMessage("No hay respaldo en la nube todavía.");
-      return;
+    try {
+      const backup = await loadCloudBackup(data.user.uid);
+      if (!backup) {
+        setMessage("No hay respaldo en la nube todavía.");
+        return;
+      }
+      await importBackup(backup);
+      await refresh();
+      setMessage("Datos recuperados desde Firebase.");
+    } catch (error) {
+      setMessage(errorMessage(error));
     }
-    await importBackup(backup);
-    await refresh();
-    setMessage("Datos recuperados desde Firebase.");
   };
   const pushCloud = async () => {
-    await syncCloudNow(data.user);
-    setMessage("Datos guardados en Firebase.");
+    try {
+      await syncCloudNow(data.user);
+      setMessage("Datos guardados en Firebase.");
+    } catch (error) {
+      setMessage(errorMessage(error));
+    }
+  };
+  const testCloud = async () => {
+    try {
+      await syncCloudNow(data.user);
+      setMessage(`Firebase OK: users/${data.user?.uid}`);
+    } catch (error) {
+      setMessage(errorMessage(error));
+    }
   };
   return (
     <section className="stack">
@@ -725,10 +741,12 @@ function Settings({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
             ? <>
               <button onClick={pushCloud}>Subir a la nube</button>
               <button onClick={pullCloud}>Bajar de la nube</button>
+              <button onClick={testCloud}>Probar Firebase</button>
               <button onClick={logoutCloud}>Salir</button>
             </>
-            : <button onClick={loginCloud} disabled={!cloudEnabled}>Entrar con Google</button>}
+            : <button onClick={() => loginCloud().catch((error) => setMessage(errorMessage(error)))} disabled={!cloudEnabled}>Entrar con Google</button>}
         </div>
+        {message && <p className="status">{message}</p>}
       </article>
       <article className="panel">
         <h2>Ajustes</h2>
@@ -789,6 +807,10 @@ function bestSet(sessions: WorkoutSession[], exerciseId: string) {
 
 function sessionStatus(status: WorkoutSession["status"]) {
   return ({ active: "activa", paused: "pausada", completed: "completa", partial: "parcial" } as const)[status];
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Error Firebase";
 }
 
 function targetDefault(target: string, unit: "reps" | "seconds") {
