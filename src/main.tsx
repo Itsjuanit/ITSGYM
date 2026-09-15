@@ -725,8 +725,10 @@ function Settings({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
   };
   const testCloud = async () => {
     try {
+      if (!cloudEnabled) throw new Error("Firebase sin configurar en Vercel.");
+      if (!data.user) throw new Error("No estás logueado con Google.");
       await syncCloudNow(data.user);
-      setMessage(`Firebase OK: users/${data.user?.uid}`);
+      setMessage(`Firebase OK: users/${data.user.uid}`);
     } catch (error) {
       setMessage(errorMessage(error));
     }
@@ -735,16 +737,16 @@ function Settings({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
     <section className="stack">
       <article className="panel">
         <h2>Firebase</h2>
-        <p>{cloudEnabled ? data.user ? `Conectado como ${data.user.email}` : "Entrá con Google para sincronizar este celular." : "Faltan variables VITE_FIREBASE_*."}</p>
+        <p>{cloudEnabled ? data.user ? `Conectado como ${data.user.email}` : "Firebase configurado. Falta entrar con Google." : "Faltan variables VITE_FIREBASE_*."}</p>
+        <p>Estado: config {cloudEnabled ? "OK" : "NO"} · usuario {data.user ? "OK" : "NO"}</p>
         <div className="actions">
-          {data.user
-            ? <>
+          {!data.user && <button onClick={() => loginCloud().catch((error) => setMessage(errorMessage(error)))} disabled={!cloudEnabled}>Entrar con Google</button>}
+          <button onClick={testCloud}>Probar Firebase</button>
+          {data.user && <>
               <button onClick={pushCloud}>Subir a la nube</button>
               <button onClick={pullCloud}>Bajar de la nube</button>
-              <button onClick={testCloud}>Probar Firebase</button>
               <button onClick={logoutCloud}>Salir</button>
-            </>
-            : <button onClick={() => loginCloud().catch((error) => setMessage(errorMessage(error)))} disabled={!cloudEnabled}>Entrar con Google</button>}
+            </>}
         </div>
         {message && <p className="status">{message}</p>}
       </article>
