@@ -73,6 +73,42 @@ p, li, label, summary { line-height: 1.5; font-size: 1rem; }
 .status { color: #20623c; font-weight: 700; }
 .icon-link { white-space: nowrap; }
 
+.cloud-bar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.45rem;
+  align-items: center;
+  margin: -0.3rem 0 0.85rem;
+  padding: 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.cloud-bar span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cloud-bar button, .cloud-bar a {
+  min-height: 36px;
+  padding: 0.4rem 0.65rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid #c9c1b0;
+  border-radius: 8px;
+  background: var(--soft);
+  font-weight: 850;
+}
+
+.cloud-bar.synced { grid-template-columns: 1fr auto auto; }
+.cloud-bar.synced span { color: #20623c; }
+.cloud-bar.off span { color: #8b4c13; }
+
 .today-hero {
   display: grid;
   gap: 1rem;

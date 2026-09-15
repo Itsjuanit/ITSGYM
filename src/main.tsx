@@ -52,6 +52,7 @@ function AppShell() {
         </div>
         <NavLink className="icon-link" to="/ajustes">Ajustes</NavLink>
       </header>
+      <CloudBar data={data} refresh={refresh} />
       <main>
         <Routes>
           <Route path="/" element={<Today data={data} refresh={refresh} workoutTemplates={workoutTemplates} />} />
@@ -68,6 +69,35 @@ function AppShell() {
         <NavLink to="/historial">Historial</NavLink>
         <NavLink to="/progreso">Progreso</NavLink>
       </nav>
+    </div>
+  );
+}
+
+function CloudBar({ data, refresh }: { data: Snapshot; refresh: () => Promise<void> }) {
+  const [message, setMessage] = useState("");
+  const pullCloud = async () => {
+    if (!data.user) return;
+    const backup = await loadCloudBackup(data.user.uid);
+    if (!backup) {
+      setMessage("Sin respaldo en Firebase");
+      return;
+    }
+    await importBackup(backup);
+    await refresh();
+    setMessage("Datos bajados");
+  };
+  const pushCloud = async () => {
+    await syncCloudNow(data.user);
+    setMessage("Datos subidos");
+  };
+
+  if (!cloudEnabled) return <div className="cloud-bar off"><span>Firebase sin configurar</span><NavLink to="/ajustes">Configurar</NavLink></div>;
+  if (!data.user) return <div className="cloud-bar"><span>Guardado local</span><button onClick={loginCloud}>Entrar con Google</button></div>;
+  return (
+    <div className="cloud-bar synced">
+      <span>{message || `Sincronizado: ${data.user.email}`}</span>
+      <button onClick={pushCloud}>Subir</button>
+      <button onClick={pullCloud}>Bajar</button>
     </div>
   );
 }
