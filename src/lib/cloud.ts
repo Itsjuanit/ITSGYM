@@ -1,5 +1,5 @@
 import { initializeApp, type FirebaseOptions } from "firebase/app";
-import { GoogleAuthProvider, getAuth, onAuthStateChanged, signInWithRedirect, signOut, type User } from "firebase/auth";
+import { GoogleAuthProvider, getAuth, onAuthStateChanged, signInAnonymously, signInWithPopup, signInWithRedirect, signOut, type User } from "firebase/auth";
 import { doc, getDoc, getFirestore, serverTimestamp, setDoc } from "firebase/firestore";
 import type { Backup } from "./types";
 
@@ -29,7 +29,12 @@ export function watchCloudUser(setUser: (user: User | null) => void) {
 
 export const loginCloud = () => {
   if (!auth) throw new Error("Firebase no está configurado.");
-  return signInWithRedirect(auth, provider);
+  return signInWithPopup(auth, provider).catch(() => signInWithRedirect(auth, provider));
+};
+
+export const loginGuestCloud = () => {
+  if (!auth) throw new Error("Firebase no está configurado.");
+  return signInAnonymously(auth);
 };
 
 export const logoutCloud = () => auth ? signOut(auth) : Promise.resolve();

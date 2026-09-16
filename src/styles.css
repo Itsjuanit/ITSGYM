@@ -107,6 +107,7 @@ p, li, label, summary { line-height: 1.5; font-size: 1rem; }
 }
 
 .cloud-bar.synced { grid-template-columns: 1fr auto auto; }
+.cloud-bar.login { grid-template-columns: 1fr auto auto; }
 .cloud-bar.synced span { color: #20623c; }
 .cloud-bar.off span { color: #8b4c13; }
 

@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { BrowserRouter } from "react-router-dom";
 import { byId, exercises, templates, type TemplateExercise, type WorkoutTemplate } from "./data/catalog";
-import { cloudEnabled, loadCloudBackup, loginCloud, logoutCloud, saveCloudBackup, watchCloudUser } from "./lib/cloud";
+import { cloudEnabled, loadCloudBackup, loginCloud, loginGuestCloud, logoutCloud, saveCloudBackup, watchCloudUser } from "./lib/cloud";
 import { db, exportBackup, finishSession, getProfile, importBackup, saveProfile, startOrResumeSession, templateForDate, updateSession } from "./lib/db";
 import { formatMinutes, todayKey, uid, weekdayName } from "./lib/dates";
 import type { FitnessAssessment, LoggedSet, PadelSession, Profile, WeightEntry, WorkoutSession } from "./lib/types";
@@ -102,10 +102,16 @@ function CloudBar({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
   };
 
   if (!cloudEnabled) return <div className="cloud-bar off"><span>Firebase sin configurar</span><NavLink to="/ajustes">Configurar</NavLink></div>;
-  if (!data.user) return <div className="cloud-bar"><span>{message || "Firebase requerido"}</span><button onClick={() => loginCloud().catch((error) => setMessage(errorMessage(error)))}>Entrar con Google</button></div>;
+  if (!data.user) return (
+    <div className="cloud-bar login">
+      <span>{message || "Firebase requerido"}</span>
+      <button onClick={() => loginGuestCloud().catch((error) => setMessage(errorMessage(error)))}>Entrar rápido</button>
+      <button onClick={() => loginCloud().catch((error) => setMessage(errorMessage(error)))}>Google</button>
+    </div>
+  );
   return (
     <div className="cloud-bar synced">
-      <span>{message || `Sincronizado: ${data.user.email}`}</span>
+      <span>{message || `Sincronizado: ${userLabel(data.user)}`}</span>
       <button onClick={pushCloud}>Subir</button>
       <button onClick={pullCloud}>Bajar</button>
     </div>
@@ -299,8 +305,11 @@ function Training({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
       <section className="stack">
         <article className="panel">
           <h2>Firebase requerido</h2>
-          <p>Para que no se pierdan entrenamientos, entrá con Google antes de entrenar.</p>
-          <button className="primary" onClick={() => loginCloud()}>Entrar con Google</button>
+          <p>Para que no se pierdan entrenamientos, entrá a Firebase antes de entrenar.</p>
+          <div className="actions">
+            <button className="primary" onClick={() => loginGuestCloud()}>Entrar rápido</button>
+            <button onClick={() => loginCloud()}>Entrar con Google</button>
+          </div>
         </article>
       </section>
     );
@@ -737,10 +746,13 @@ function Settings({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
     <section className="stack">
       <article className="panel">
         <h2>Firebase</h2>
-        <p>{cloudEnabled ? data.user ? `Conectado como ${data.user.email}` : "Firebase configurado. Falta entrar con Google." : "Faltan variables VITE_FIREBASE_*."}</p>
+        <p>{cloudEnabled ? data.user ? `Conectado como ${userLabel(data.user)}` : "Firebase configurado. Falta entrar." : "Faltan variables VITE_FIREBASE_*."}</p>
         <p>Estado: config {cloudEnabled ? "OK" : "NO"} · usuario {data.user ? "OK" : "NO"}</p>
         <div className="actions">
-          {!data.user && <button onClick={() => loginCloud().catch((error) => setMessage(errorMessage(error)))} disabled={!cloudEnabled}>Entrar con Google</button>}
+          {!data.user && <>
+            <button onClick={() => loginGuestCloud().catch((error) => setMessage(errorMessage(error)))} disabled={!cloudEnabled}>Entrar rápido</button>
+            <button onClick={() => loginCloud().catch((error) => setMessage(errorMessage(error)))} disabled={!cloudEnabled}>Entrar con Google</button>
+          </>}
           <button onClick={testCloud}>Probar Firebase</button>
           {data.user && <>
               <button onClick={pushCloud}>Subir a la nube</button>
@@ -813,6 +825,10 @@ function sessionStatus(status: WorkoutSession["status"]) {
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Error Firebase";
+}
+
+function userLabel(user: User) {
+  return user.isAnonymous ? "modo rápido" : user.email ?? user.uid;
 }
 
 function targetDefault(target: string, unit: "reps" | "seconds") {
