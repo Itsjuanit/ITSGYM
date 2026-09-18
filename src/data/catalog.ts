@@ -21,7 +21,7 @@ export type TemplateExercise = {
 };
 
 export type WorkoutTemplate = {
-  id: "A" | "B" | "C";
+  id: "L" | "A" | "B" | "C" | "V";
   name: string;
   focus: string;
   minutes: string;
@@ -54,6 +54,14 @@ export const exercises: Exercise[] = [
 ];
 
 export const templates: WorkoutTemplate[] = [
+  { id: "L", name: "L - Lunes suave", focus: "movilidad, core y pierna liviana", minutes: "20-25", exercises: [
+    { exerciseId: "warm-mobility", sets: 1, target: "180 seg", rest: 30, tempo: "fluido" },
+    { exerciseId: "box-squat", sets: 2, target: "10-12 reps", rest: 45, tempo: "controlado" },
+    { exerciseId: "glute-bridge", sets: 2, target: "12-15 reps", rest: 45, tempo: "2s apretar arriba" },
+    { exerciseId: "dead-bug", sets: 2, target: "8-10 por lado", rest: 45, tempo: "lento" },
+    { exerciseId: "side-plank", sets: 1, target: "20-25 seg por lado", rest: 45, tempo: "respirar parejo" },
+    { exerciseId: "breathing", sets: 1, target: "120 seg", rest: 0, tempo: "exhalación larga" }
+  ] },
   { id: "A", name: "A - Piernas + hombros", focus: "piernas, glúteos y hombros", minutes: "31-36", exercises: [
     { exerciseId: "warm-mobility", sets: 1, target: "180 seg", rest: 30, tempo: "fluido" },
     { exerciseId: "goblet-squat", sets: 3, target: "8-10 reps", rest: 75, tempo: "3s bajar · subir controlado" },
@@ -82,6 +90,15 @@ export const templates: WorkoutTemplate[] = [
     { exerciseId: "box-squat", sets: 2, target: "10-12 reps", rest: 60, tempo: "controlado" },
     { exerciseId: "suitcase-carry", sets: 2, target: "30-40 seg por lado", rest: 45, tempo: "postura alta" },
     { exerciseId: "breathing", sets: 1, target: "120 seg", rest: 0, tempo: "exhalación larga" }
+  ] },
+  { id: "V", name: "V - Viernes brazos suave", focus: "bíceps, hombros y postura liviana", minutes: "22-28", exercises: [
+    { exerciseId: "march-place", sets: 1, target: "180 seg", rest: 30, tempo: "ritmo cómodo" },
+    { exerciseId: "biceps-curl", sets: 2, target: "10-12 por lado", rest: 60, tempo: "bajada lenta" },
+    { exerciseId: "hammer-curl", sets: 2, target: "10-12 por lado", rest: 60, tempo: "sin balanceo" },
+    { exerciseId: "lateral-raise", sets: 2, target: "8-12 por lado", rest: 60, tempo: "controlado" },
+    { exerciseId: "shoulder-press", sets: 2, target: "8-10 por lado", rest: 60, tempo: "sin apuro" },
+    { exerciseId: "suitcase-carry", sets: 2, target: "30 seg por lado", rest: 45, tempo: "postura alta" },
+    { exerciseId: "breathing", sets: 1, target: "120 seg", rest: 0, tempo: "bajar pulsaciones" }
   ] }
 ];
 

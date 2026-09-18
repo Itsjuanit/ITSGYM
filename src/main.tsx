@@ -18,7 +18,7 @@ type Snapshot = {
   user: User | null;
 };
 
-const empty: Snapshot = { profile: { id: "me", strengthDays: [2, 3, 4], padelDays: [], preferredMinutes: 35, goal: "", customTemplates: templates }, sessions: [], padel: [], weights: [], user: null };
+const empty: Snapshot = { profile: { id: "me", strengthDays: [1, 2, 3, 4, 5], padelDays: [], preferredMinutes: 35, goal: "", customTemplates: templates }, sessions: [], padel: [], weights: [], user: null };
 
 function useSnapshot() {
   const [data, setData] = useState<Snapshot>(empty);
@@ -151,7 +151,7 @@ function Today({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: (
         <button className="primary" onClick={start}>{activeMatchesToday ? "Continuar" : completedToday ? "Ver historial" : "Empezar"}</button>
       </article>
       <article className="quick-stats">
-        <div><strong>{weekCompleted}/3</strong><span>esta semana</span></div>
+        <div><strong>{weekCompleted}/5</strong><span>esta semana</span></div>
         <div><strong>{completed.length}</strong><span>sesiones</span></div>
         <div><strong>{data.weights[0]?.kg ?? data.profile.weightKg ?? "--"}</strong><span>kg actual</span></div>
       </article>
@@ -228,7 +228,7 @@ function Plan({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: ()
       setMessage("Entrá con Google para guardar en Firebase.");
       return;
     }
-    await saveProfile({ ...data.profile, strengthDays: [2, 3, 4], padelDays: [], customTemplates: draft });
+    await saveProfile({ ...data.profile, strengthDays: [1, 2, 3, 4, 5], padelDays: [], customTemplates: draft });
     await syncCloudNow(data.user);
     setMessage("Rutinas guardadas.");
     await refresh();
@@ -238,9 +238,9 @@ function Plan({ data, refresh, workoutTemplates }: { data: Snapshot; refresh: ()
       <article className="panel">
         <div className="section-title">
           <h2>Calendario</h2>
-          <span>Martes, miércoles y jueves</span>
+          <span>Lunes a viernes</span>
         </div>
-        <Week profile={{ ...data.profile, strengthDays: [2, 3, 4], padelDays: [] }} workoutTemplates={draft} />
+        <Week profile={{ ...data.profile, strengthDays: [1, 2, 3, 4, 5], padelDays: [] }} workoutTemplates={draft} />
       </article>
       {draft.map((template) => (
         <article className="panel routine-card" key={template.id}>
@@ -586,7 +586,7 @@ function Progress({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
     await refresh();
   };
   const weekly = completed.filter((session) => session.localDate >= todayKey(new Date(Date.now() - 6 * 86400000))).length;
-  const adherence = Math.round((weekly / 3) * 100);
+  const adherence = Math.round((weekly / 5) * 100);
   return (
     <section className="stack">
       <article className="metrics">
@@ -600,7 +600,7 @@ function Progress({ data, refresh }: { data: Snapshot; refresh: () => Promise<vo
           <span>{adherence}%</span>
         </div>
         <div className="meter"><span style={{ width: `${Math.min(adherence, 100)}%` }} /></div>
-        <p>Objetivo: 3 sesiones entre martes y jueves.</p>
+        <p>Objetivo: 5 sesiones de lunes a viernes, con lunes y viernes suaves.</p>
       </article>
       <FitnessSystem data={data} />
       <article className="panel">
@@ -641,17 +641,17 @@ function FitnessSystem({ data }: { data: Snapshot }) {
         </section>
         <section>
           <h3>Objetivos claros</h3>
-          <p>Completar martes, miércoles y jueves. Meta base: 10 de 12 sesiones cada 4 semanas.</p>
-          <p>Últimos 30 días: {completed30}/12 completadas.</p>
+          <p>Completar lunes a viernes. Lunes y viernes son suaves. Meta base: 16 de 20 sesiones cada 4 semanas.</p>
+          <p>Últimos 30 días: {completed30}/20 completadas.</p>
         </section>
         <section>
           <h3>Entrenamiento</h3>
-          <p>A/B/C divide piernas + hombros, espalda + bíceps, tríceps + full body. En Plan podés cambiar ejercicios, series, objetivo y descanso.</p>
+          <p>L/A/B/C/V divide soporte suave, piernas + hombros, espalda + bíceps, tríceps + full body, y brazos livianos. En Plan podés cambiar ejercicios, series, objetivo y descanso.</p>
           <p>Progresión: subí reps solo cuando dos sesiones salgan cómodas y sin dolor.</p>
         </section>
         <section>
           <h3>Pérdida de grasa</h3>
-          <p>Si ese es el objetivo, mantené las 3 sesiones y caminá más en días libres. El peso se mira por tendencia, no por un día suelto.</p>
+          <p>Si ese es el objetivo, mantené la semana completa y caminá más en días libres. El peso se mira por tendencia, no por un día suelto.</p>
         </section>
         <section>
           <h3>Músculo y recuperación</h3>

@@ -5,7 +5,7 @@ import type { Backup, PadelSession, Profile, WeightEntry, WorkoutSession } from 
 
 const defaultProfile: Profile = {
   id: "me",
-  strengthDays: [2, 3, 4],
+  strengthDays: [1, 2, 3, 4, 5],
   padelDays: [],
   preferredMinutes: 35,
   goal: "Constancia y fuerza general con una mancuerna de 7 kg",
@@ -13,7 +13,7 @@ const defaultProfile: Profile = {
   assessment: {
     level: "principiante",
     objective: "fuerza",
-    lifestyle: "Entreno en casa martes, miércoles y jueves.",
+    lifestyle: "Entreno en casa de lunes a viernes, con lunes y viernes suaves.",
     recovery: "Priorizar sueño, técnica cómoda y no entrenar dolor fuerte."
   }
 };
@@ -42,13 +42,14 @@ const sameDays = (a?: number[], b?: number[]) => JSON.stringify(a ?? []) === JSO
 function normalizeProfile(profile?: Profile): Profile {
   if (!profile) return defaultProfile;
   const wasOldDefault = sameDays(profile.strengthDays, [1, 3, 5]) && sameDays(profile.padelDays, [2, 4]);
-  const wasOldTemplates = ["A - Base", "A - Martes fuerte"].includes(profile.customTemplates?.[0]?.name ?? "");
+  const wasThreeDayPlan = sameDays(profile.strengthDays, [2, 3, 4]) || (profile.customTemplates?.length ?? 0) < templates.length;
+  const wasOldTemplates = ["A - Base", "A - Martes fuerte", "A - Piernas + hombros"].includes(profile.customTemplates?.[0]?.name ?? "");
   return {
     ...defaultProfile,
     ...profile,
-    strengthDays: wasOldDefault ? defaultProfile.strengthDays : profile.strengthDays,
+    strengthDays: wasOldDefault || wasThreeDayPlan ? defaultProfile.strengthDays : profile.strengthDays,
     padelDays: wasOldDefault ? defaultProfile.padelDays : profile.padelDays,
-    customTemplates: wasOldTemplates ? templates : profile.customTemplates ?? templates
+    customTemplates: wasOldTemplates || wasThreeDayPlan ? templates : profile.customTemplates ?? templates
   };
 }
 
